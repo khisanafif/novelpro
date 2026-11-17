@@ -17,22 +17,24 @@ Dirancang khusus agar tetap ringan dan mulus di perangkat RAM 8 GB (`nice -n 10`
 3. [Panduan Lengkap Cara Pakai Studio](#3-panduan-lengkap-cara-pakai-studio)
 4. [Kurasi Model AI GGUF: Spesifikasi, Plus/Minus, & Rekomendasi](#4-kurasi-model-ai-gguf-spesifikasi-plusminus--rekomendasi)
 5. [Cara Download, Menambah Model Kustom, & Ganti Model (Switch RAM)](#5-cara-download-menambah-model-kustom--ganti-model-switch-ram)
-6. [Pengamanan Cloudflare Tunnel (Akses Internet Aman)](#6-pengamanan-cloudflare-tunnel-akses-internet-aman)
-7. [Optimasi ZRAM (Linux) & Troubleshooting Lintas OS](#7-optimasi-zram-linux--troubleshooting-lintas-os)
+6. [Menggunakan API Model AI Online & Sumber Lain (Gemini, OpenRouter, Groq, OpenAI, Claude, Ollama)](#6-menggunakan-api-model-ai-online--sumber-lain-gemini-openrouter-groq-openai-claude-ollama)
+7. [Pengamanan Cloudflare Tunnel (Akses Internet Aman)](#7-pengamanan-cloudflare-tunnel-akses-internet-aman)
+8. [Optimasi ZRAM (Linux) & Troubleshooting Lintas OS](#8-optimasi-zram-linux--troubleshooting-lintas-os)
 
 ---
 
 ## 1. Arsitektur, Prasyarat, & Struktur Folder
 
 - **Python:** Python `3.10` – `3.12` (disarankan `3.12`).
-- **RAM:** Minimal `4 GB` (untuk model 1.7B–3B); direkomendasikan `8–16 GB` (nyaman untuk 3B–8B, serta 12B pada RAM 16 GB+).
-- **Mesin AI:** Binary resmi [`ggml-org/llama.cpp` (`b12428`)](https://github.com/ggml-org/llama.cpp/releases/tag/b12428) di folder `bin/` (`llama-server` di Linux/macOS/Android atau `llama-server.exe` di Windows).
+- **RAM:** Minimal `4 GB` (atau jauh lebih ringan lagi jika memakai **Mode API Online**); direkomendasikan `8–16 GB` untuk model lokal 3B–8B, serta 12B pada RAM 16 GB+.
+- **Mesin AI:** Mendukung mesin lokal [`ggml-org/llama.cpp` (`b12428`)](https://github.com/ggml-org/llama.cpp/releases/tag/b12428) (`bin/llama-server` / `llama-server.exe`) **maupun** API eksternal kompatibel OpenAI/Anthropic (Gemini, OpenRouter, Groq, OpenAI, DeepSeek, Mistral, Claude, Ollama, LM Studio).
 - **Aset UI Offline:** Frontend bekerja 100% tanpa CDN internet (`alpine.min.js` + `studio-utilities.css` terpasang lokal).
 
 ```text
 novelpro/
 ├── backend/
 │   ├── main.py             # API FastAPI + SingleWorkerInferenceQueue + pemantau RAM lintas OS
+│   ├── ai_provider.py      # Adapter Multi-Provider AI (Lokal llama-server, OpenAI-Compat, Anthropic)
 │   ├── database.py         # SQLite WAL + FTS5 BM25 (codex_fts & episodic_memory_fts)
 │   ├── engine.py           # DeterministicPacingEngine + 3 Persona Prompt + Anti-Summary Filter
 │   ├── memory_manager.py   # 4-Tier Memory Assembler (400 kata tail + FTS5 <1ms) & State Extractor
@@ -493,7 +495,72 @@ curl -X POST http://127.0.0.1:8000/api/models/stop
 
 ---
 
-## 6. Pengamanan Cloudflare Tunnel (Akses Internet Aman)
+## 6. Menggunakan API Model AI Online & Sumber Lain (Gemini, OpenRouter, Groq, OpenAI, Claude, Ollama)
+
+Jika Anda memakai laptop hemat daya (seperti CPU 2-Core), ingin langsung mencoba model raksasa (DeepSeek, Gemini 2.5, Qwen 72B, Claude, GPT-4o), atau ingin menyambung ke server GPU lain (**Ollama / LM Studio / vLLM**), Anda dapat menjalankan seluruh Studio **tanpa perlu mengunduh file `.gguf` atau menyalakan `llama-server` lokal**.
+
+Adapter di [backend/ai_provider.py](backend/ai_provider.py) otomatis mengarahkan ketiga proses AI (**Write Beat Streaming SSE**, **AI Plot Architect / Generate Beats**, dan **Post-Beat State Extractor**) ke provider aktif yang Anda pilih.
+
+### Daftar Preset & Sumber Kompatibel Bawaan
+
+| Provider / Sumber | Protokol | Base URL Bawaan | Contoh Model ID | API Key |
+| :--- | :--- | :--- | :--- | :---: |
+| **OpenRouter** | `openai_compatible` | `https://openrouter.ai/api/v1` | `deepseek/deepseek-chat-v3-0324:free`, `qwen/qwen-2.5-72b-instruct` | Wajib |
+| **Google Gemini** | `openai_compatible` | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash`, `gemini-2.5-pro` | Wajib |
+| **Groq Cloud** | `openai_compatible` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile`, `qwen-qwq-32b` | Wajib |
+| **OpenAI** | `openai_compatible` | `https://api.openai.com/v1` | `gpt-4o-mini`, `gpt-4.1` | Wajib |
+| **DeepSeek API** | `openai_compatible` | `https://api.deepseek.com/v1` | `deepseek-chat`, `deepseek-reasoner` | Wajib |
+| **Mistral AI** | `openai_compatible` | `https://api.mistral.ai/v1` | `mistral-small-latest`, `mistral-large-latest` | Wajib |
+| **Anthropic Claude** | `anthropic` | `https://api.anthropic.com/v1` | `claude-3-5-sonnet-latest`, `claude-3-7-sonnet-latest` | Wajib |
+| **Ollama (Lokal / LAN)** | `openai_compatible` | `http://127.0.0.1:11434/v1` | `qwen2.5:7b`, `gemma2:9b` | Opsional |
+| **LM Studio / KoboldCpp / vLLM** | `openai_compatible` | `http://127.0.0.1:1234/v1` *(atau URL kustom)* | Sesuai model yang dimuat di server | Opsional |
+
+### Cara Mengaktifkan Lewat Web UI (Paling Praktis)
+1. Klik badge status AI di pojok kanan atas layar (bertuliskan **`AI: ...`**, **`🌐 API: ...`**, atau **`Model AI OFFLINE • Pilih`**).
+2. Pilih tab **`🌐 API Online & Sumber Lain`**.
+3. Klik salah satu kartu **Preset Sumber AI** *(misal Google Gemini, OpenRouter, Groq, DeepSeek, Anthropic, atau Ollama)* untuk mengisi **Protokol** dan **Base URL** secara otomatis.
+4. Isi **Nama / ID Model**, atau klik **`🔍 Ambil Daftar Model`** agar Studio mengambil daftar model langsung dari server (`/v1/models`).
+5. Tempel **API Key** Anda *(kosongkan jika memakai Ollama/LM Studio lokal tanpa autentikasi)*. Key disimpan secara lokal saja di `backend/.ai_provider_config.json` dengan izin `0600` (sudah dikecualikan di `.gitignore`).
+6. *(Opsional)* Biarkan centang **Matikan `llama-server` lokal otomatis** aktif agar RAM ±2 GB langsung dibebaskan saat beralih ke mode online.
+7. Klik **`⚡ Uji Koneksi API`** untuk memastikan respon dan latensi berjalan normal, lalu klik **`✅ Simpan & Aktifkan Sumber AI Ini`**.
+8. Kapan pun ingin kembali ke model `.gguf` offline lokal, klik **`↩️ Kembali ke Mode Lokal`** atau pilih model di tab **`💾 Model Lokal`**.
+
+### Opsi Konfigurasi via Environment Variables (Headless / CLI)
+Jika ingin langsung mengarahkan Studio ke API eksternal saat menyalakan `uvicorn` atau `./start_studio.sh`:
+```bash
+export NOVEL_AI_PROVIDER="openai_compatible" # atau "anthropic" / "local_llama"
+export NOVEL_AI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
+export NOVEL_AI_MODEL="gemini-2.5-flash"
+export NOVEL_AI_API_KEY="AIzaSy..."
+./start_studio.sh
+```
+
+### Contoh Pengaturan Provider via REST API (`curl`)
+```bash
+# Cek status provider aktif (API key tersamar)
+curl -s http://127.0.0.1:8000/api/ai/provider
+
+# Aktifkan API Online (contoh: Google Gemini AI Studio)
+curl -X POST http://127.0.0.1:8000/api/ai/provider \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider_type": "openai_compatible",
+    "preset_id": "gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model_name": "gemini-2.5-flash",
+    "api_key": "API_KEY_ANDA",
+    "stop_local_llama": true
+  }'
+
+# Kembali ke mode lokal llama-server GGUF
+curl -X POST http://127.0.0.1:8000/api/ai/provider \
+  -H "Content-Type: application/json" \
+  -d '{"provider_type": "local_llama", "preset_id": "local_llama"}'
+```
+
+---
+
+## 7. Pengamanan Cloudflare Tunnel (Akses Internet Aman)
 
 Jika Anda ingin menulis dari HP/laptop lain di luar rumah via Internet **tanpa membuka port router** (berlaku di Linux, Windows, maupun macOS), gunakan modul keamanan bawaan [backend/security_config.py](backend/security_config.py):
 
@@ -527,7 +594,7 @@ Jika Anda ingin menulis dari HP/laptop lain di luar rumah via Internet **tanpa m
 
 ---
 
-## 7. Optimasi ZRAM (Linux) & Troubleshooting Lintas OS
+## 8. Optimasi ZRAM (Linux) & Troubleshooting Lintas OS
 
 ### Aktifkan ZRAM di Linux (Sangat Disarankan di RAM 8 GB)
 Jika di Linux Mint / Ubuntu / Debian saat instalasi awal belum menjalankan `sudo` untuk ZRAM, jalankan satu kali di terminal:
@@ -553,6 +620,11 @@ sudo systemctl restart zramswap && sudo sysctl --system
 - **Cek log mesin AI & FastAPI secara langsung:**
   - Log `llama-server`: `.logs/llama-server.log`
   - Log `FastAPI` (saat dijalankan lewat `start_studio.sh`): `.logs/fastapi.log`
+- **Error saat memakai API AI Online (`HTTP 401` / `404` / `429`):**
+  - `401 Unauthorized` / `403`: API Key salah, kadaluarsa, atau belum aktif untuk model tersebut.
+  - `404` / `model_not_found`: pastikan ID model sesuai dengan daftar milik provider (klik tombol **`🔍 Ambil Daftar Model`** di tab **`🌐 API Online`**).
+  - `429 Too Many Requests`: kuota/rate limit tier gratis provider tercapai sementara — tunggu sebentar atau beralih ke model lain/mode lokal.
+  - Menyambung ke **Ollama di PC lain dalam Wi-Fi LAN**: jalankan `OLLAMA_HOST=0.0.0.0 ollama serve` pada PC GPU Anda, lalu isi `Base URL` di Studio dengan `http://<IP-PC-GPU>:11434/v1`.
 
 #### Khusus Windows 10 / 11
 - **`llama-server.exe` gagal start / error hilang `llama.dll` atau `ggml.dll`:**
