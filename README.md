@@ -1,115 +1,154 @@
-# The Zen Literary Studio — AI Novel Writing Studio (Lintas-OS Edition)
+# The Zen Literary Studio — AI Novel Writing Studio
 
-Aplikasi web penulisan novel panjang (*long-form fiction*) yang berjalan **100% lokal, privat, dan ringan** di **Linux (Mint / Ubuntu / Debian / Arch / Fedora)**, **Windows 10/11**, **macOS (Apple Silicon & Intel)**, maupun **Android (Termux ARM64)** menggunakan orkestrator **FastAPI (1 Worker)**, **SQLite (WAL + FTS5 BM25 <1 ms)**, dan mesin inferensi native C++ **`llama-server` (`llama.cpp`)**.
+Aplikasi web penulisan novel panjang (*long-form fiction*) yang dirancang agar **ringan, konsisten menjaga alur cerita antar-bab, bebas klise moralistik AI, dan fleksibel**: bisa berjalan **100% offline di perangkat sendiri** (`llama-server`) maupun tersambung ke **API AI Online / server eksternal** (*Google Gemini, OpenRouter, Groq, OpenAI, DeepSeek, Mistral, Anthropic Claude, Ollama, atau LM Studio*).
 
-Dirancang khusus agar tetap ringan dan mulus di perangkat RAM 8 GB (`nice -n 10` di Linux), hemat memori, bebas *summary moralistik AI*, konsisten antar-bab melalui **4-Tier Memory**, dan dapat diakses dari laptop maupun HP/Tablet lewat Wi-Fi LAN atau Cloudflare Tunnel.
+Tersedia untuk **Linux (Mint / Ubuntu / Debian / Arch / Fedora)**, **Windows 10/11**, **macOS (Apple Silicon & Intel)**, serta **Android (Termux)** dan dapat diakses nyaman dari laptop maupun HP lewat satu jaringan Wi-Fi.
 
 ---
 
 ## Daftar Isi
-1. [Arsitektur, Prasyarat, & Struktur Folder](#1-arsitektur-prasyarat--struktur-folder)
-2. [Panduan Instalasi & Menjalankan Studio di Semua OS](#2-panduan-instalasi--menjalankan-studio-di-semua-os)
-   - [2A. Linux (Linux Mint / Ubuntu / Debian, serta Arch / Fedora / ARM64)](#2a-linux-linux-mint--ubuntu--debian-serta-arch--fedora--arm64)
-   - [2B. Windows 10 / 11 (x64 & ARM64 — PowerShell)](#2b-windows-10--11-x64--arm64--powershell)
-   - [2C. macOS (Apple Silicon M1–M4 & Intel x64 — Terminal)](#2c-macos-apple-silicon-m1m4--intel-x64--terminal)
-   - [2D. Android (Termux ARM64 — Portable Offline)](#2d-android-termux-arm64--portable-offline)
-   - [2E. Referensi Cepat Binary Resmi llama.cpp (`b12428`) Lintas OS](#2e-referensi-cepat-binary-resmi-llamacpp-b12428-lintas-os)
-3. [Panduan Lengkap Cara Pakai Studio](#3-panduan-lengkap-cara-pakai-studio)
-4. [Kurasi Model AI GGUF: Spesifikasi, Plus/Minus, & Rekomendasi](#4-kurasi-model-ai-gguf-spesifikasi-plusminus--rekomendasi)
-5. [Cara Download, Menambah Model Kustom, & Ganti Model (Switch RAM)](#5-cara-download-menambah-model-kustom--ganti-model-switch-ram)
-6. [Menggunakan API Model AI Online & Sumber Lain (Gemini, OpenRouter, Groq, OpenAI, Claude, Ollama)](#6-menggunakan-api-model-ai-online--sumber-lain-gemini-openrouter-groq-openai-claude-ollama)
-7. [Pengamanan Cloudflare Tunnel (Akses Internet Aman)](#7-pengamanan-cloudflare-tunnel-akses-internet-aman)
-8. [Optimasi ZRAM (Linux) & Troubleshooting Lintas OS](#8-optimasi-zram-linux--troubleshooting-lintas-os)
+
+### Bagian I — Penjelasan & Pengenalan Konsep *(Baca Ini Dulu)*
+1. [Apa Itu The Zen Literary Studio?](#1-apa-itu-the-zen-literary-studio)
+2. [Mengenal Konsep & Istilah Penting di Studio](#2-mengenal-konsep--istilah-penting-di-studio)
+3. [Arsitektur, Spesifikasi Perangkat, & Struktur Folder](#3-arsitektur-spesifikasi-perangkat--struktur-folder)
+
+### Bagian II — Tutorial Lengkap Langkah Demi Langkah
+4. [Tutorial 1 — Instalasi & Menjalankan Studio di Semua OS](#4-tutorial-1--instalasi--menjalankan-studio-di-semua-os)
+   - [4A. Linux (Linux Mint / Ubuntu / Debian, serta Arch / Fedora / ARM64)](#4a-linux-linux-mint--ubuntu--debian-serta-arch--fedora--arm64)
+   - [4B. Windows 10 / 11 (x64 & ARM64 — PowerShell)](#4b-windows-10--11-x64--arm64--powershell)
+   - [4C. macOS (Apple Silicon M1–M4 & Intel x64 — Terminal)](#4c-macos-apple-silicon-m1m4--intel-x64--terminal)
+   - [4D. Android (Termux ARM64 — Langsung di HP/Tablet)](#4d-android-termux-arm64--langsung-di-hptablet)
+   - [4E. Daftar Binary Resmi llama.cpp (`b12428`) Lintas OS](#4e-daftar-binary-resmi-llamacpp-b12428-lintas-os)
+5. [Tutorial 2 — Memilih & Menghubungkan Sumber AI (Online API atau Offline GGUF)](#5-tutorial-2--memilih--menghubungkan-sumber-ai-online-api-atau-offline-gguf)
+   - [5A. Cara Pakai API Model AI Online / Server Eksternal](#5a-cara-pakai-api-model-ai-online--server-eksternal)
+   - [5B. Cara Memilih, Mengunduh, & Mengganti Model Lokal (`.GGUF`)](#5b-cara-memilih-mengunduh--mengganti-model-lokal-gguf)
+6. [Tutorial 3 — Panduan Menulis Novel dari Awal sampai Ekspor](#6-tutorial-3--panduan-menulis-novel-dari-awal-sampai-ekspor)
+7. [Tutorial Lanjutan — Akses Internet Aman via Cloudflare Tunnel (Opsional)](#7-tutorial-lanjutan--akses-internet-aman-via-cloudflare-tunnel-opsional)
+8. [Lampiran — Optimasi ZRAM (Linux) & Troubleshooting Cepat](#8-lampiran--optimasi-zram-linux--troubleshooting-cepat)
 
 ---
 
-## 1. Arsitektur, Prasyarat, & Struktur Folder
+# Bagian I — Penjelasan & Pengenalan Konsep
 
-- **Python:** Python `3.10` – `3.12` (disarankan `3.12`).
-- **RAM:** Minimal `4 GB` (atau jauh lebih ringan lagi jika memakai **Mode API Online**); direkomendasikan `8–16 GB` untuk model lokal 3B–8B, serta 12B pada RAM 16 GB+.
-- **Mesin AI:** Mendukung mesin lokal [`ggml-org/llama.cpp` (`b12428`)](https://github.com/ggml-org/llama.cpp/releases/tag/b12428) (`bin/llama-server` / `llama-server.exe`) **maupun** API eksternal kompatibel OpenAI/Anthropic (Gemini, OpenRouter, Groq, OpenAI, DeepSeek, Mistral, Claude, Ollama, LM Studio).
-- **Aset UI Offline:** Frontend bekerja 100% tanpa CDN internet (`alpine.min.js` + `studio-utilities.css` terpasang lokal).
+## 1. Apa Itu The Zen Literary Studio?
 
+Saat menulis novel panjang dengan AI chat biasa, penulis hampir selalu menghadapi tiga masalah: **AI cepat lupa kejadian bab-bab awal**, **alur cerita suka meloncat terlalu cepat ke klimaks**, dan **gaya tulisannya penuh kalimat klise** (*"tanpa mereka sadari..."*, *"waktu seakan berhenti..."*).
+
+**The Zen Literary Studio** memecahkan masalah tersebut dengan memisahkan penyusunan struktur cerita, ingatan dunia novel, dan penulisan prosa per adegan kecil (*Micro-Beat*) di dalam satu ruang kerja editorial yang rapi dan hemat RAM.
+
+### Dua Cara Menggunakan AI (Pilih yang Paling Cocok)
+
+| Jalur AI | Cara Kerja | Cocok Untuk Siapa? | Perlu Download `llama-server` & `.gguf`? |
+| :--- | :--- | :--- | :---: |
+| **🌐 Mode API Online / Server Lain** | Studio terhubung ke Google Gemini, OpenRouter (ada model gratis `:free`), Groq, OpenAI, DeepSeek, Claude, atau Ollama/LM Studio di PC lain. | Laptop RAM kecil / CPU 2-Core yang ingin respons **kilat dalam hitungan detik** dan akses model kelas atas. | **Tidak perlu** *(langsung jalan setelah pasang Python)* |
+| **🖥️ Mode Lokal Offline (`.GGUF`)** | AI berjalan langsung di komputer/HP Anda memakai `llama-server` (`llama.cpp`). | Penulis yang mengutamakan **privasi 100% offline**, bebas biaya kuota API selamanya, atau punya GPU/Apple Silicon. | **Ya** *(tersedia panduan lengkap di Tutorial 1 & 2B)* |
+
+> Anda bisa berpindah antara Mode Online dan Mode Offline **kapan saja dari Web UI** tanpa kehilangan naskah.
+
+---
+
+## 2. Mengenal Konsep & Istilah Penting di Studio
+
+Sebelum mengikuti tutorial instalasi, pahami terlebih dahulu 6 komponen inti yang akan Anda temui di antarmuka Studio:
+
+1. **🧭 Core Compass (Story Bible — Tier 1):**
+   Kompas induk novel Anda: judul, nama penulis/pena, genre, premis, tujuan besar cerita (*North Star*), sudut pandang (POV), contoh ritme prosa (*Style Sample*), serta daftar frasa klise terlarang (*Banned Phrases*).
+2. **📈 Phase-Range Timeline & Guardrails:**
+   Pita di bagian atas layar yang membagi novel menjadi rentang bab (misalnya *Bab 1–3 Opening*, *Bab 4–9 Rising Action*, hingga *Ending*). Setiap fase punya **Guardrails** (aturan pengunci agar AI tidak membocorkan akhir cerita atau menyelesaikan konflik sebelum waktunya).
+3. **📚 Codex / Lorebook & SQLite FTS5 BM25 (`<1 ms`):**
+   Basis data berisi kartu **Karakter**, **Lokasi**, **Aturan Dunia**, **Item**, dan **Lore**:
+   - Entitas yang diberi pin (**📌**) selalu diingat AI di setiap adegan.
+   - Entitas lainnya otomatis dipanggil dalam `<1 milidetik` oleh mesin pencari teks SQLite FTS5 BM25 hanya ketika kata kuncinya relevan dengan adegan yang sedang ditulis — tanpa memakan RAM tambahan seperti *Vector DB*.
+   - Setiap karakter memiliki **`Current State`** (lokasi terkini, kondisi fisik, emosi, inventaris, dan apa yang baru ia ketahui).
+4. **🎬 Micro-Beats & 5 Slider Narrative Mix:**
+   Satu bab tidak ditulis sekaligus dalam satu kali tekan (yang sering melantur), melainkan dipecah menjadi kartu **Micro-Beat** (±350–400 kata per adegan). Setiap bab diatur lewat 5 slider (**World-Building**, **Psikologi**, **Sensorik**, **Dialog**, dan **Aksi**) serta tiap beat memiliki **Titik Berhenti Mutlak (*Stopping Point*)**.
+5. **🧠 Memori 4-Tier:**
+   Setiap kali Anda menekan **`▶️ Write Beat`**, backend merakit konteks secara terstruktur:
+   - *Tier 1:* Kompas Novel, *Guardrails* fase aktif, & aturan dunia *pinned*.
+   - *Tier 2:* Kondisi terkini karakter & lokasi adegan dari *Codex*.
+   - *Tier 3:* Ringkasan cerita lintas-bab, memori episodik FTS5 BM25, + **400 kata terakhir** persis sebelum beat ini agar sambungan kalimat mulus.
+   - *Tier 4:* Target kata, setelan 5 slider, instruksi kejadian, & titik berhenti beat.
+6. **🔄 Extract State:**
+   Setelah satu beat selesai ditulis, tekan **`🧠 Extract State & Update Codex`** untuk memperbarui ringkasan kejadian dan kondisi karakter ke SQLite secara otomatis (tersedia mode **⚡ Cepat `<1ms`** yang hemat CPU 2-Core dan **🧠 AI Extractor Penuh**).
+
+---
+
+## 3. Arsitektur, Spesifikasi Perangkat, & Struktur Folder
+
+### Spesifikasi Minimal
+- **Python:** versi `3.10` – `3.12` (disarankan `3.12`).
+- **RAM:**
+  - *Mode API Online:* sangat ringan (**< 300 MB RAM** untuk FastAPI + browser).
+  - *Mode Lokal GGUF:* minimal **4 GB** (model 1.7B–3B), disarankan **8–16 GB** (3B–8B, atau 12B di RAM 16 GB+).
+- **Koneksi Internet:** Tidak wajib saat memakai Mode Lokal (seluruh aset UI seperti `alpine.min.js` dan CSS sudah tersimpan offline di `frontend/vendor/`). Wajib hanya saat memakai API Online atau mengunduh model baru.
+
+### Struktur Folder Proyek
 ```text
 novelpro/
 ├── backend/
-│   ├── main.py             # API FastAPI + SingleWorkerInferenceQueue + pemantau RAM lintas OS
-│   ├── ai_provider.py      # Adapter Multi-Provider AI (Lokal llama-server, OpenAI-Compat, Anthropic)
-│   ├── database.py         # SQLite WAL + FTS5 BM25 (codex_fts & episodic_memory_fts)
-│   ├── engine.py           # DeterministicPacingEngine + 3 Persona Prompt + Anti-Summary Filter
-│   ├── memory_manager.py   # 4-Tier Memory Assembler (400 kata tail + FTS5 <1ms) & State Extractor
-│   ├── model_manager.py    # Model Switcher Lintas-OS, Katalog Kurasi, & Custom GGUF Downloader
-│   ├── exporter.py         # Compiler naskah standar penerbit (.EPUB via EbookLib & .MD)
-│   ├── security_config.py  # Middleware Validasi Header Cloudflare Tunnel & Generator UFW
-│   ├── requirements.txt    # Dependensi Python minimal
-│   ├── .venv/              # Python virtual environment lokal
-│   └── novel_studio.db     # Database naskah & Story Bible (otomatis dibuat saat start)
+│   ├── main.py                # Server API FastAPI + Antrean 1-Slot + pemantau RAM lintas OS
+│   ├── ai_provider.py         # Adapter Multi-Provider AI (Lokal llama-server, OpenAI-Compat, Claude)
+│   ├── database.py            # SQLite WAL + FTS5 BM25 + migrasi skema + Backup/Restore JSON
+│   ├── engine.py              # Perencana Micro-Beats, 5 Slider Mix, & Filter Anti-Klise
+│   ├── memory_manager.py      # Perakit Memori 4-Tier (<1ms FTS5) & Post-Beat State Extractor
+│   ├── model_manager.py       # Pengelola model lokal .GGUF, switcher RAM, & downloader HuggingFace
+│   ├── exporter.py            # Compiler naskah (.EPUB standar penerbit, HTML siap cetak/PDF, & .MD)
+│   ├── security_config.py     # Pengaman Cloudflare Tunnel Zero Trust & generator UFW
+│   ├── requirements.txt       # Daftar paket Python
+│   ├── .venv/                 # Environment Python lokal (dibuat saat setup)
+│   └── novel_studio.db        # Database naskah & Story Bible (otomatis dibuat saat start)
 ├── frontend/
-│   ├── vendor/             # Aset offline lokal (alpine.min.js + studio-utilities.css zero-JIT)
-│   ├── index.html          # UI The Zen Literary Studio (Warm Parchment & Obsidian Ink)
-│   ├── styles.css          # Tipografi Literata & layout responsif Desktop/HP (mobile drawer)
-│   └── app.js              # Controller Alpine.js + Auto-Save + SSE real-time streaming
-├── bin/
-│   └── llama-server        # Binary C++ llama.cpp (atau llama-server.exe di Windows) + library (.so/.dylib/.dll)
-├── models/
-│   └── Qwen2.5-3B-Instruct-Q4_K_M.gguf  # Model awal terpasang (1.8 GB)
-├── Caddyfile               # Reverse proxy statis opsional port 3000 (Linux/macOS/Windows)
-├── setup_mint_8gb.sh       # Installer otomatis Linux Mint / Ubuntu / Debian
-├── start_studio.sh         # Menyalakan llama-server + FastAPI + info IP LAN (Linux)
-├── stop_studio.sh          # Mematikan semua layanan & WAL checkpoint SQLite bersih (Linux)
-└── NovelStudio.desktop     # Launcher 1-klik di Application Menu Linux Mint / Desktop Linux
+│   ├── vendor/                # Aset offline (alpine.min.js + studio-utilities.css)
+│   ├── index.html             # Antarmuka The Zen Literary Studio
+│   ├── styles.css             # Tipografi buku cetak & tata letak responsif Desktop/HP
+│   └── app.js                 # Logika UI, Auto-Save, SSE Streaming, Cari & Ganti, Target Harian
+├── bin/                       # Tempat binary llama-server (.so/.dylib/.dll) untuk mode offline
+├── models/                    # Tempat file model .gguf untuk mode offline
+├── Caddyfile                  # Reverse proxy statis opsional (port 3000)
+├── setup_mint_8gb.sh          # Installer otomatis untuk Linux Mint / Ubuntu / Debian
+├── start_studio.sh            # Menyalakan Studio & menampilkan alamat akses Desktop + HP (Linux)
+├── stop_studio.sh             # Mematikan Studio & menyimpan database bersih (Linux)
+└── NovelStudio.desktop        # Ikon peluncur 1-klik di Menu Aplikasi Linux
 ```
 
 ---
 
-## 2. Panduan Instalasi & Menjalankan Studio di Semua OS
+# Bagian II — Tutorial Lengkap Langkah Demi Langkah
 
-Pilih panduan sesuai sistem operasi perangkat Anda. Setelah server berjalan dan halaman web terbuka, cara pemakaian UI di browser **sama persis** di seluruh sistem operasi.
+## 4. Tutorial 1 — Instalasi & Menjalankan Studio di Semua OS
+
+> **Tips Memilih Langkah untuk Pemula:**
+> - Jika Anda ingin memakai **API Online** (*Gemini, OpenRouter, Groq, ChatGPT, DeepSeek, Claude*): cukup selesaikan langkah **Install Python/Environment** dan **Menyalakan Studio**, lalu langsung lanjut ke **[Bagian 5A](#5a-cara-pakai-api-model-ai-online--server-eksternal)** — lewati bagian pemasangan `llama-server` dan download `.gguf`.
+> - Jika Anda ingin **100% Offline Lokal**: ikuti semua sub-langkah termasuk menyalin `llama-server` ke `bin/` dan model `.gguf` ke `models/`.
 
 ---
 
-### 2A. Linux (Linux Mint / Ubuntu / Debian, serta Arch / Fedora / ARM64)
+### 4A. Linux (Linux Mint / Ubuntu / Debian, serta Arch / Fedora / ARM64)
 
-#### 1) Instalasi Otomatis (Linux Mint / Ubuntu / Debian — Disarankan)
-Jika memakai Linux Mint, Ubuntu, atau Debian di laptop ini maupun hasil clone baru:
-```bash
-cd /path/to/novelpro
-chmod +x setup_mint_8gb.sh start_studio.sh stop_studio.sh
-./setup_mint_8gb.sh
-```
-Skrip ini otomatis:
-- Membuat `backend/.venv` dan menginstal `backend/requirements.txt`,
-- Menginisialisasi SQLite FTS5 (`backend/novel_studio.db`) beserta 1 proyek awal **Starter Template**,
-- Mendaftarkan `NovelStudio.desktop` ke Application Menu (`~/.local/share/applications/`),
-- Menampilkan petunjuk aktivasi ZRAM (jika ingin memakai `sudo`).
+#### Langkah 1 — Instalasi Environment Python & Database
+- **Linux Mint / Ubuntu / Debian (Otomatis dengan 1 skrip):**
+  ```bash
+  cd /path/to/novelpro
+  chmod +x setup_mint_8gb.sh start_studio.sh stop_studio.sh
+  ./setup_mint_8gb.sh
+  ```
+  Skrip ini otomatis membuat `backend/.venv`, menginstal `backend/requirements.txt`, membuat database awal lengkap dengan 1 proyek contoh (*Starter Template*), dan mendaftarkan ikon ke Menu Aplikasi (`NovelStudio.desktop`).
+- **Arch Linux / Fedora / Distro Lain:**
+  ```bash
+  # Arch / Manjaro:
+  sudo pacman -S --needed python python-pip curl sqlite tar
+  # Fedora:
+  sudo dnf install -y python3 python3-pip curl sqlite tar
 
-*(Catatan untuk workspace ini: `.venv`, `bin/llama-server`, dan `models/Qwen2.5-3B-Instruct-Q4_K_M.gguf` sudah terpasang siap pakai.)*
+  cd /path/to/novelpro
+  python3 -m venv backend/.venv
+  backend/.venv/bin/pip install --upgrade pip
+  backend/.venv/bin/pip install -r backend/requirements.txt
+  ```
 
-#### 2) Untuk Distro Arch Linux / Fedora / Linux ARM64 (Setup Baru)
-```bash
-# Arch Linux / Manjaro / EndeavourOS
-sudo pacman -S --needed python python-pip curl sqlite tar
-
-# Fedora
-sudo dnf install -y python3 python3-pip curl sqlite tar
-
-# Buat venv, instal dependensi, & buat database starter
-cd /path/to/novelpro
-python3 -m venv backend/.venv
-backend/.venv/bin/pip install --upgrade pip
-backend/.venv/bin/pip install -r backend/requirements.txt
-backend/.venv/bin/python -c "import sys; sys.path.insert(0, 'backend'); import database; database.init_db()"
-```
-
-#### 3) Memasang / Meng-upgrade `llama-server` di `bin/` (Jika Belum Ada)
-Pilih varian rilis resmi `llama.cpp` `b12428` sesuai hardware Linux Anda:
-- **CPU x64 Umum (Intel Celeron/Core, AMD Ryzen):** `llama-b12428-bin-ubuntu-x64.tar.gz` (`22.4 MB`)
-- **GPU Intel/AMD/NVIDIA via Vulkan x64:** `llama-b12428-bin-ubuntu-vulkan-x64.tar.gz` (`34.7 MB`)
-- **GPU NVIDIA CUDA 12.8 x64:** `llama-b12428-bin-ubuntu-cuda-12.8-x64.tar.gz` (`190.8 MB`)
-- **GPU AMD ROCm 10.0 x64:** `llama-b12428-bin-ubuntu-rocm-10.0-x64.tar.gz` (`260.2 MB`)
-- **Linux ARM64 (Raspberry Pi 5 / Server ARM):** `llama-b12428-bin-ubuntu-arm64.tar.gz` (`18.2 MB`)
-
-Contoh pemasangan CPU x64 ke folder `bin/`:
+#### Langkah 2 — *(Khusus Mode Offline Lokal)* Pasang `llama-server` ke `bin/`
+Jika belum ada `bin/llama-server` *(untuk contoh CPU x64 standar)*:
 ```bash
 mkdir -p bin models /tmp/llama-linux
 curl -L "https://github.com/ggml-org/llama.cpp/releases/download/b12428/llama-b12428-bin-ubuntu-x64.tar.gz" -o /tmp/llama-linux.tar.gz
@@ -117,107 +156,74 @@ tar -xzf /tmp/llama-linux.tar.gz -C /tmp/llama-linux
 find /tmp/llama-linux -type f \( -name "llama-server" -o -name "*.so*" \) -exec cp -P {} bin/ \;
 chmod +x bin/llama-server
 ```
+*(Untuk GPU Vulkan / NVIDIA CUDA / AMD ROCm / ARM64, ganti nama file `.tar.gz` sesuai tabel di [Bagian 4E](#4e-daftar-binary-resmi-llamacpp-b12428-lintas-os).)*
 
-#### 4) Menyalakan & Mematikan Studio (Linux)
-```bash
-cd /path/to/novelpro
-./start_studio.sh               # Menyalakan llama-server + FastAPI + buka browser
-# Opsi lain:
-./start_studio.sh --no-browser  # Menyalakan server tanpa membuka browser otomatis
-./start_studio.sh --tunnel      # Sekaligus menyalakan cloudflared (jika sudah setup)
-```
-Atau klik ikon **The Zen Literary Studio** di **Menu Aplikasi Linux Mint $\rightarrow$ *Office***.
-
-Untuk mematikan seluruh layanan secara bersih dan mengamankan database (`WAL checkpoint`):
-```bash
-cd /path/to/novelpro
-./stop_studio.sh
-```
-*(Jika hanya ingin memutus sementara model AI di RAM tanpa menutup aplikasi web, klik badge status AI di pojok kanan atas UI lalu tekan **🛑 Matikan AI (Bebaskan RAM)**).*
-
-#### 5) Buka Port LAN 8000 (Jika Ingin Menulis dari HP lewat Wi-Fi)
-```bash
-sudo ufw allow from 192.168.0.0/16 to any port 8000 proto tcp
-sudo ufw allow from 10.0.0.0/8 to any port 8000 proto tcp
-```
-Lalu buka **`http://<IP-LAN-LAPTOP>:8000`** yang dicetak oleh `./start_studio.sh` di browser HP Anda.
+#### Langkah 3 — Menyalakan & Mematikan Studio
+- **Menyalakan:**
+  ```bash
+  cd /path/to/novelpro
+  ./start_studio.sh
+  ```
+  *(Opsi tambahan: `./start_studio.sh --no-browser` tanpa membuka browser, atau `./start_studio.sh --tunnel` bersama `cloudflared`. Bisa juga klik ikon **The Zen Literary Studio** di Start Menu $\rightarrow$ Office).*
+- **Membuka di Browser:** `http://localhost:8000` (atau buka alamat IP Wi-Fi yang tercetak di terminal dari HP Anda; jika UFW aktif, buka port LAN sekali saja: `sudo ufw allow from 192.168.0.0/16 to any port 8000 proto tcp`).
+- **Mematikan:**
+  ```bash
+  cd /path/to/novelpro
+  ./stop_studio.sh
+  ```
 
 ---
 
-### 2B. Windows 10 / 11 (x64 & ARM64 — PowerShell)
+### 4B. Windows 10 / 11 (x64 & ARM64 — PowerShell)
 
-#### 1) Prasyarat
-1. Pasang **Python 3.10–3.12** dari [python.org/downloads](https://www.python.org/downloads/) *(**WAJIB** centang kotak **"Add python.exe to PATH"** saat instalasi)*, atau jalankan di PowerShell:
+#### Langkah 1 — Pasang Python & Paket Studio
+1. Instal **Python 3.10–3.12** dari [python.org/downloads](https://www.python.org/downloads/) *(**WAJIB centang "Add python.exe to PATH"** saat instalasi)*, atau via PowerShell:
    ```powershell
    winget install -e --id Python.Python.3.12
    ```
-2. Pasang Git (opsional, jika clone repo): `winget install -e --id Git.Git`.
+2. Buka **Windows PowerShell** di dalam folder proyek `novelpro`, lalu buat environment Python:
+   ```powershell
+   cd C:\path\to\novelpro
+   python -m venv backend\.venv
+   .\backend\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+   ```
+   *(Memanggil `.\backend\.venv\Scripts\python.exe` langsung menghindari masalah `ExecutionPolicy` pada PowerShell.)*
 
-#### 2) Buat Virtual Environment & Instal Dependensi
-Buka **Windows PowerShell**, masuk ke folder proyek `novelpro`:
-```powershell
-cd C:\path\to\novelpro
-python -m venv backend\.venv
-.\backend\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-```
-*(Dengan memanggil `.\backend\.venv\Scripts\python.exe` langsung, Anda tidak akan terblokir oleh aturan ExecutionPolicy PowerShell.)*
+#### Langkah 2 — *(Khusus Mode Offline Lokal)* Pasang `llama-server.exe` & Model Awal
+1. Unduh & ekstrak binary `llama-server.exe` ke folder `bin\` *(contoh CPU x64; lihat [Bagian 4E](#4e-daftar-binary-resmi-llamacpp-b12428-lintas-os) untuk Vulkan GPU / NVIDIA CUDA / ARM64)*:
+   ```powershell
+   New-Item -ItemType Directory -Force -Path bin, models, "$env:TEMP\llama-win" | Out-Null
+   Invoke-WebRequest -Uri "https://github.com/ggml-org/llama.cpp/releases/download/b12428/llama-b12428-bin-win-cpu-x64.zip" -OutFile "$env:TEMP\llama-win.zip"
+   Expand-Archive -Path "$env:TEMP\llama-win.zip" -DestinationPath "$env:TEMP\llama-win" -Force
+   Get-ChildItem -Path "$env:TEMP\llama-win" -Recurse -Include "llama-server.exe","*.dll" | Copy-Item -Destination "bin\" -Force
+   ```
+   *(Jika memakai versi CUDA GPU, ekstrak juga `cudart-llama-bin-win-cuda-12.4-x64.zip` ke folder `bin\` yang sama.)*
+2. *(Opsional lewat terminal — bisa juga lewat Web UI nanti)* Unduh model awal ke `models\`:
+   ```powershell
+   curl.exe -L -C - "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf" -o models\Qwen2.5-3B-Instruct-Q4_K_M.gguf
+   ```
 
-#### 3) Download & Ekstrak Mesin AI `llama-server.exe` ke `bin\`
-Pilih versi resmi `b12428` sesuai hardware Windows Anda:
-- **CPU x64 Standar (Semua laptop Intel/AMD):** `llama-b12428-bin-win-cpu-x64.zip` (`24.0 MB`)
-- **GPU Vulkan (Intel Arc, iGPU AMD Radeon, atau NVIDIA):** `llama-b12428-bin-win-vulkan-x64.zip` (`36.5 MB`)
-- **GPU NVIDIA RTX/GTX (CUDA 12.4):** `llama-b12428-bin-win-cuda-12.4-x64.zip` (`305.3 MB`) **+** wajib unduh juga `cudart-llama-bin-win-cuda-12.4-x64.zip` (`373.3 MB`) ke folder `bin\` yang sama!
-- **Windows 11 ARM64 (Snapdragon X):** `llama-b12428-bin-win-cpu-arm64.zip` (`12.9 MB`)
-
-Jalankan di PowerShell (contoh CPU x64):
-```powershell
-New-Item -ItemType Directory -Force -Path bin, models, "$env:TEMP\llama-win" | Out-Null
-Invoke-WebRequest -Uri "https://github.com/ggml-org/llama.cpp/releases/download/b12428/llama-b12428-bin-win-cpu-x64.zip" -OutFile "$env:TEMP\llama-win.zip"
-Expand-Archive -Path "$env:TEMP\llama-win.zip" -DestinationPath "$env:TEMP\llama-win" -Force
-Get-ChildItem -Path "$env:TEMP\llama-win" -Recurse -Include "llama-server.exe","*.dll" | Copy-Item -Destination "bin\" -Force
-```
-Pastikan file `bin\llama-server.exe` beserta file `*.dll` berada langsung di dalam folder `bin\`.
-
-#### 4) Download Model Awal `.gguf` ke `models\`
-*(Anda juga bisa mengunduh langsung lewat Web UI setelah server menyala, atau lewat PowerShell `curl.exe` yang mendukung resume `-C -`):*
-```powershell
-curl.exe -L -C - "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf" -o models\Qwen2.5-3B-Instruct-Q4_K_M.gguf
-```
-
-#### 5) Menyalakan & Mematikan Studio di Windows
-- **Cara Paling Praktis (1 Terminal PowerShell — AI Dinyalakan lewat Web UI):**
-  ```powershell
-  .\backend\.venv\Scripts\python.exe -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000 --workers 1
-  ```
-  1. Buka browser ke **`http://localhost:8000`** *(file `backend\novel_studio.db` otomatis dibuat saat start).*
-  2. Klik badge status AI di pojok kanan atas layar $\rightarrow$ tab **`💾 Model Lokal`** $\rightarrow$ klik **`🔄 Switch & Muat`**. Studio otomatis menyalakan `bin\llama-server.exe` secara latar belakang dan mengatur `PATH` DLL-nya.
-- **Cara Manual (2 Terminal PowerShell — bila ingin memantau log `llama-server.exe` secara langsung):**
-  - **PowerShell 1 (AI Engine):**
-    ```powershell
-    .\bin\llama-server.exe -m .\models\Qwen2.5-3B-Instruct-Q4_K_M.gguf --host 127.0.0.1 --port 8080 --ctx-size 8192 --parallel 1 --cache-type-k f16 --cache-type-v f16 --load-mode mmap --flash-attn auto
-    ```
-    *(Tips GPU: tambahkan `-ngl 99` di akhir perintah jika Anda memakai binary **Vulkan** atau **CUDA**!)*
-  - **PowerShell 2 (Web Studio):**
-    ```powershell
-    .\backend\.venv\Scripts\python.exe -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000 --workers 1
-    ```
-- **Cara Mematikan:** Klik tombol **`🛑 Matikan AI (Bebaskan RAM)`** di Web UI (Backend memakai `taskkill` ke `llama-server.exe`), lalu tekan **`Ctrl+C`** pada jendela PowerShell FastAPI.
-
-#### 6) Akses dari HP via Wi-Fi LAN & Firewall Windows
-1. Cek IP lokal Windows di PowerShell dengan `ipconfig` (lihat bagian *Wireless LAN adapter Wi-Fi* $\rightarrow$ `IPv4 Address`, misal `192.168.1.24`).
-2. Buka PowerShell **Run as Administrator** sekali saja untuk mengizinkan port `8000` di jaringan rumah (*Private*):
+#### Langkah 3 — Menyalakan, Mengakses dari HP, & Mematikan
+1. **Jalankan Studio (1 terminal saja):**
+   ```powershell
+   .\backend\.venv\Scripts\python.exe -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000 --workers 1
+   ```
+2. Buka **`http://localhost:8000`** di Chrome/Edge.
+   - Jika memakai **Mode Lokal**: klik badge status AI di pojok kanan atas $\rightarrow$ tab **`💾 Model Lokal`** $\rightarrow$ klik **`🔄 Switch & Muat`**.
+   - Jika memakai **API Online**: buka tab **`🌐 API Online & Sumber Lain`** ([Bagian 5A](#5a-cara-pakai-api-model-ai-online--server-eksternal)).
+   - *(Opsional cara manual 2 terminal untuk memantau log AI langsung: jalankan `.\bin\llama-server.exe -m .\models\Qwen2.5-3B-Instruct-Q4_K_M.gguf --host 127.0.0.1 --port 8080 --ctx-size 8192 --parallel 1 --cache-type-k f16 --cache-type-v f16 --load-mode mmap --flash-attn auto` — tambahkan `-ngl 99` untuk GPU Vulkan/CUDA).*
+3. **Akses dari HP lewat Wi-Fi:** cek IP via `ipconfig` (`IPv4 Address`, misal `192.168.1.24`), lalu jalankan sekali di PowerShell *Run as Administrator*:
    ```powershell
    New-NetFirewallRule -DisplayName "Zen Literary Studio LAN 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Profile Private -Action Allow
    ```
-3. Buka `http://192.168.1.24:8000` di Chrome/Safari HP Anda.
+4. **Mematikan:** klik **`🛑 Matikan AI Lokal (Bebaskan RAM)`** di Web UI (jika memakai model lokal), lalu tekan **`Ctrl+C`** di PowerShell.
 
 ---
 
-### 2C. macOS (Apple Silicon M1–M4 & Intel x64 — Terminal)
+### 4C. macOS (Apple Silicon M1–M4 & Intel x64 — Terminal)
 
-#### 1) Prasyarat & Setup Virtual Environment
-Pasang [Homebrew](https://brew.sh) jika belum ada, lalu instal Python `3.12`:
+#### Langkah 1 — Pasang Python & Environment Studio
 ```zsh
 brew install python@3.12
 cd /path/to/novelpro
@@ -226,10 +232,8 @@ backend/.venv/bin/pip install --upgrade pip
 backend/.venv/bin/pip install -r backend/requirements.txt
 ```
 
-#### 2) Pasang `llama-server` ke `bin/` (Metal GPU Otomatis di Apple Silicon)
-- **Opsi A — Binary Resmi `llama.cpp` `b12428` (Direkomendasikan agar terisolasi di `bin/`):**
-  - Apple Silicon (`M1 / M2 / M3 / M4`, akselerasi **Metal GPU** aktif otomatis): `llama-b12428-bin-macos-arm64.tar.gz` (`16.2 MB`)
-  - Mac Intel (`x64`): `llama-b12428-bin-macos-x64.tar.gz` (`12.2 MB`)
+#### Langkah 2 — *(Khusus Mode Offline Lokal)* Pasang `llama-server`
+- **Cara A (Binary Resmi ke `bin/` — Metal GPU aktif otomatis di Mac M1–M4):**
   ```zsh
   mkdir -p bin models /tmp/llama-mac
   # Untuk Mac Intel x64, ganti "macos-arm64" menjadi "macos-x64"
@@ -237,310 +241,124 @@ backend/.venv/bin/pip install -r backend/requirements.txt
   tar -xzf /tmp/llama-mac.tar.gz -C /tmp/llama-mac
   find /tmp/llama-mac -type f \( -name "llama-server" -o -name "*.dylib" -o -name "*.metallib" \) -exec cp -P {} bin/ \;
   chmod +x bin/llama-server
-  # Wajib untuk macOS Gatekeeper agar binary tidak diblokir sebagai "unidentified developer"
+  # Wajib agar macOS Gatekeeper mengizinkan binary berjalan tanpa popup blokir
   xattr -dr com.apple.quarantine bin/
   ```
-- **Opsi B — Alternatif via Homebrew:**
+- **Cara B (Alternatif Homebrew):** `brew install llama.cpp`.
+- *(Opsional unduh model awal via terminal)*:
   ```zsh
-  brew install llama.cpp
+  curl -L -C - "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf" -o models/Qwen2.5-3B-Instruct-Q4_K_M.gguf
   ```
-  *(Studio otomatis mendeteksi `llama-server` di `/opt/homebrew/bin/llama-server` lewat `PATH`.)*
 
-#### 3) Download Model Awal `.gguf` ke `models/`
+#### Langkah 3 — Menyalakan & Mematikan Studio
 ```zsh
-curl -L -C - "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf" -o models/Qwen2.5-3B-Instruct-Q4_K_M.gguf
+backend/.venv/bin/python -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000 --workers 1
 ```
-*(Tips Mac M1–M4 RAM 16 GB+: dengan akselerasi Metal GPU terpadu, model **Tier 2/3/4** seperti `Qwen_Qwen3-4B`, `EVA-Qwen2.5-7B`, bahkan `MN-12B-Celeste` terasa sangat responsif!)*
-
-#### 4) Menyalakan & Mematikan Studio di macOS
-- **1 Terminal (AI Dinyalakan Otomatis lewat Web UI):**
-  ```zsh
-  backend/.venv/bin/python -m uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000 --workers 1
-  ```
-  Buka `http://localhost:8000`, klik badge AI di pojok kanan atas $\rightarrow$ **`🔄 Switch & Muat`**. Backend otomatis menyetel `DYLD_LIBRARY_PATH` untuk `bin/` dan membaca pemakaian RAM dari `sysctl` + `vm_stat`.
-- **Atau Manual di Terminal terpisah (`-ngl 99` untuk penuh di Metal GPU):**
-  ```zsh
-  ./bin/llama-server -m models/Qwen2.5-3B-Instruct-Q4_K_M.gguf --host 127.0.0.1 --port 8080 --ctx-size 8192 --parallel 1 --cache-type-k f16 --cache-type-v f16 --load-mode mmap --flash-attn auto -ngl 99
-  ```
-- **Mematikan:** Klik **`🛑 Matikan AI (Bebaskan RAM)`** di Web UI, lalu tekan `Ctrl+C` di Terminal FastAPI.
-- **Akses Wi-Fi LAN:** Cek IP Wi-Fi dengan `ipconfig getifaddr en0`, lalu buka `http://<IP-MAC>:8000` dari iPhone/iPad/Android. Jika macOS Firewall aktif (*System Settings* $\rightarrow$ *Network* $\rightarrow$ *Firewall*), izinkan koneksi masuk untuk `Python`.
+Buka **`http://localhost:8000`**, lalu aktifkan model lewat badge AI di pojok kanan atas (**Mode Lokal** maupun **API Online**). Untuk akses Wi-Fi dari iPhone/iPad/Android, cek IP via `ipconfig getifaddr en0` lalu buka `http://<IP-MAC>:8000`. Untuk mematikan, klik **`🛑 Matikan AI Lokal`** di UI lalu tekan `Ctrl+C` di Terminal.
 
 ---
 
-### 2D. Android (Termux ARM64 — Portable Offline)
+### 4D. Android (Termux ARM64 — Langsung di HP/Tablet)
 
-Anda bisa menjalankan seluruh server + AI lokal **langsung di HP/Tablet Android (disarankan RAM 6–8 GB+)** tanpa PC/Laptop!
+Anda dapat menulis langsung dari HP Android secara offline (`Qwen3-1.7B`) maupun memakai **API Online** (jauh lebih hemat baterai!).
 
-#### 1) Prasyarat & Instalasi Paket Termux
-Gunakan **Termux** versi terbaru dari **F-Droid** atau **GitHub Releases** *(hindari versi Play Store karena usang)*:
-```bash
-pkg update && pkg upgrade -y
-pkg install -y git python python-pip python-lxml python-pydantic curl tar libandroid-spawn
-```
-*(Memasang `python-lxml` dan `python-pydantic` lewat `pkg` sangat penting di Android agar wheel C/Rust native langsung tersedia tanpa kompilasi berjam-jam.)*
-
-#### 2) Setup Environment Python
-```bash
-cd ~/novelpro
-# Wajib --system-site-packages agar lxml & pydantic native dari pkg langsung terbaca
-python -m venv --system-site-packages backend/.venv
-backend/.venv/bin/pip install fastapi==0.115.5 uvicorn==0.32.1 httpx==0.28.0 EbookLib==0.18 six==1.16.0
-```
-
-#### 3) Pasang `llama-server` Android ARM64 (`b12428`) ke `bin/`
-- **Semua HP/Tablet Android ARM64 (MediaTek, Exynos, Tensor, Snapdragon):** `llama-b12428-bin-android-arm64.tar.gz` (`75.8 MB`)
-- **Khusus SoC Qualcomm Snapdragon (akselerasi Adreno OpenCL):** `llama-b12428-bin-android-arm64-snapdragon.tar.gz` (`63.4 MB`)
-```bash
-mkdir -p bin models /tmp/llama-and
-curl -L "https://github.com/ggml-org/llama.cpp/releases/download/b12428/llama-b12428-bin-android-arm64.tar.gz" -o /tmp/llama-and.tar.gz
-tar -xzf /tmp/llama-and.tar.gz -C /tmp/llama-and
-find /tmp/llama-and -type f \( -name "llama-server" -o -name "*.so*" \) -exec cp -P {} bin/ \;
-chmod +x bin/llama-server
-```
-
-#### 4) Download Model Ringan untuk HP
-Untuk HP RAM 6–8 GB, **`Qwen3-1.7B-Q4_K_M.gguf` (`1.03 GB`)** atau **`Qwen2.5-3B-Instruct-Q4_K_M.gguf` (`1.80 GB`)** adalah pilihan paling seimbang:
-```bash
-curl -L -C - "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf" -o models/Qwen3-1.7B-Q4_K_M.gguf
-```
-
-#### 5) Menyalakan & Mematikan di Android Termux
-```bash
-# Aktifkan wake-lock agar Android tidak menghentikan server saat Anda pindah ke Chrome
-termux-wake-lock 2>/dev/null || true
-backend/.venv/bin/python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000 --workers 1
-```
-Buka browser Chrome di HP ke **`http://127.0.0.1:8000`**, ketuk badge status AI di kanan atas $\rightarrow$ **`🔄 Switch & Muat`**. Saat selesai menulis, ketuk **`🛑 Matikan AI`** di UI, tekan `Ctrl+C` di Termux, dan jalankan `termux-wake-unlock`.
+1. **Pasang paket di Termux** *(gunakan aplikasi Termux versi F-Droid atau GitHub Releases, bukan Play Store)*:
+   ```bash
+   pkg update && pkg upgrade -y
+   pkg install -y git python python-pip python-lxml python-pydantic curl tar libandroid-spawn
+   ```
+   *(Paket `python-lxml` dan `python-pydantic` dari `pkg` mencegah gagal kompilasi C/Rust di Android.)*
+2. **Setup Environment Python:**
+   ```bash
+   cd ~/novelpro
+   python -m venv --system-site-packages backend/.venv
+   backend/.venv/bin/pip install fastapi==0.115.5 uvicorn==0.32.1 httpx==0.28.0 EbookLib==0.18 six==1.16.0
+   ```
+3. ***(Khusus Mode Offline Lokal di HP)* Pasang `llama-server` & model ringan (`1.03 GB`):**
+   ```bash
+   mkdir -p bin models /tmp/llama-and
+   # Khusus Snapdragon GPU Adreno bisa memakai llama-b12428-bin-android-arm64-snapdragon.tar.gz
+   curl -L "https://github.com/ggml-org/llama.cpp/releases/download/b12428/llama-b12428-bin-android-arm64.tar.gz" -o /tmp/llama-and.tar.gz
+   tar -xzf /tmp/llama-and.tar.gz -C /tmp/llama-and
+   find /tmp/llama-and -type f \( -name "llama-server" -o -name "*.so*" \) -exec cp -P {} bin/ \;
+   chmod +x bin/llama-server
+   curl -L -C - "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf" -o models/Qwen3-1.7B-Q4_K_M.gguf
+   ```
+4. **Menyalakan & Mematikan:**
+   ```bash
+   termux-wake-lock 2>/dev/null || true
+   backend/.venv/bin/python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000 --workers 1
+   ```
+   Buka Chrome Android ke **`http://127.0.0.1:8000`**, lalu pilih API Online atau model lokal di kanan atas. Saat selesai: klik **`🛑 Matikan AI Lokal`** $\rightarrow$ `Ctrl+C` di Termux $\rightarrow$ `termux-wake-unlock`.
 
 ---
 
-### 2E. Referensi Cepat Binary Resmi `llama.cpp` (`b12428`) Lintas OS
+### 4E. Daftar Binary Resmi `llama.cpp` (`b12428`) Lintas OS
 
-Semua file berasal dari halaman rilis resmi [ggml-org/llama.cpp `b12428`](https://github.com/ggml-org/llama.cpp/releases/tag/b12428):
+Seluruh arsip berasal dari rilis resmi [ggml-org/llama.cpp `b12428`](https://github.com/ggml-org/llama.cpp/releases/tag/b12428):
 
-| Sistem Operasi & Akselerasi | Nama Asset Rilis (`b12428`) | Ukuran | Catatan |
+| Sistem Operasi & Hardware | Nama File Asset (`b12428`) | Ukuran | Catatan |
 | :--- | :--- | :---: | :--- |
-| **Linux x64 (CPU)** *(Terpasang)* | `llama-b12428-bin-ubuntu-x64.tar.gz` | 22.4 MB | Bawaan paling stabil untuk semua PC/laptop Linux x64. |
+| **Linux x64 (CPU)** | `llama-b12428-bin-ubuntu-x64.tar.gz` | 22.4 MB | Bawaan paling stabil untuk semua laptop/PC Linux x64. |
 | **Linux x64 (Vulkan GPU)** | `llama-b12428-bin-ubuntu-vulkan-x64.tar.gz` | 34.7 MB | GPU Intel/AMD/NVIDIA modern via Vulkan. |
-| **Linux x64 (NVIDIA CUDA 12.8)** | `llama-b12428-bin-ubuntu-cuda-12.8-x64.tar.gz` | 190.8 MB | Khusus NVIDIA GeForce RTX/GTX driver CUDA 12.x+. |
-| **Linux x64 (AMD ROCm 10.0)** | `llama-b12428-bin-ubuntu-rocm-10.0-x64.tar.gz` | 260.2 MB | Khusus GPU AMD Radeon dengan stack ROCm terpasang. |
-| **Linux ARM64 (CPU)** | `llama-b12428-bin-ubuntu-arm64.tar.gz` | 18.2 MB | Raspberry Pi 5, Orange Pi, SBC, atau VM ARM64. |
-| **Windows x64 (CPU)** | `llama-b12428-bin-win-cpu-x64.zip` | 24.0 MB | Semua laptop/PC Windows 10/11 Intel & AMD. |
-| **Windows x64 (Vulkan GPU)** | `llama-b12428-bin-win-vulkan-x64.zip` | 36.5 MB | Intel Arc, Radeon iGPU/dGPU, NVIDIA tanpa install CUDA Toolkit. |
+| **Linux x64 (NVIDIA CUDA 12.8)** | `llama-b12428-bin-ubuntu-cuda-12.8-x64.tar.gz` | 190.8 MB | NVIDIA GeForce RTX/GTX driver CUDA 12.x+. |
+| **Linux x64 (AMD ROCm 10.0)** | `llama-b12428-bin-ubuntu-rocm-10.0-x64.tar.gz` | 260.2 MB | GPU AMD Radeon dengan stack ROCm. |
+| **Linux ARM64 (CPU)** | `llama-b12428-bin-ubuntu-arm64.tar.gz` | 18.2 MB | Raspberry Pi 5 / SBC / server ARM64. |
+| **Windows x64 (CPU)** | `llama-b12428-bin-win-cpu-x64.zip` | 24.0 MB | Semua Windows 10/11 Intel & AMD. |
+| **Windows x64 (Vulkan GPU)** | `llama-b12428-bin-win-vulkan-x64.zip` | 36.5 MB | Intel Arc, Radeon iGPU/dGPU, atau NVIDIA tanpa CUDA Toolkit. |
 | **Windows x64 (NVIDIA CUDA 12.4)** | `llama-b12428-bin-win-cuda-12.4-x64.zip` | 305.3 MB | **Wajib** disertai `cudart-llama-bin-win-cuda-12.4-x64.zip` (`373.3 MB`). |
-| **Windows ARM64 (CPU)** | `llama-b12428-bin-win-cpu-arm64.zip` | 12.9 MB | Laptop Windows Snapdragon ARM64. |
-| **macOS Apple Silicon (Metal GPU)** | `llama-b12428-bin-macos-arm64.tar.gz` | 16.2 MB | Mac M1/M2/M3/M4 (Metal GPU otomatis aktif; jalankan `xattr -dr com.apple.quarantine bin/`). |
-| **macOS Intel (CPU x64)** | `llama-b12428-bin-macos-x64.tar.gz` | 12.2 MB | Mac Intel (x86_64). |
+| **Windows ARM64 (CPU)** | `llama-b12428-bin-win-cpu-arm64.zip` | 12.9 MB | Windows 11 Snapdragon ARM64. |
+| **macOS Apple Silicon (Metal)** | `llama-b12428-bin-macos-arm64.tar.gz` | 16.2 MB | M1/M2/M3/M4 (Metal GPU otomatis aktif). |
+| **macOS Intel (CPU x64)** | `llama-b12428-bin-macos-x64.tar.gz` | 12.2 MB | Mac Intel x86_64. |
 | **Android Termux ARM64** | `llama-b12428-bin-android-arm64.tar.gz` | 75.8 MB | Semua HP/Tablet Android ARM64. |
 | **Android Snapdragon (OpenCL)** | `llama-b12428-bin-android-arm64-snapdragon.tar.gz` | 63.4 MB | Khusus SoC Qualcomm Snapdragon. |
 
-> **Catatan Flag Modern `llama-server` (`b12428+`):** Studio secara otomatis menguji `--help` milik `llama-server` yang terpasang untuk memilih flag terbaru yang kompatibel (`--load-mode mmap`, `--flash-attn auto`, serta `--reasoning off` / `--reasoning-budget 0` khusus seri Qwen3).
-
 ---
 
-## 3. Panduan Lengkap Cara Pakai Studio
+## 5. Tutorial 2 — Memilih & Menghubungkan Sumber AI (Online API atau Offline GGUF)
 
-Studio sudah dilengkapi 1 proyek contoh siap uji (**"Senja di Pelabuhan Sunda (Starter Template)"**). Berikut alur kerja standar untuk menulis novel baru atau melanjutkan bab:
+### 5A. Cara Pakai API Model AI Online / Server Eksternal
 
-### Langkah 1 — Buat Proyek & Isi *Core Compass* (Panel Kiri)
-1. Klik **`+ Novel`** di pojok kiri atas (atau pilih proyek aktif di dropdown).
-2. Buka tab **`Compass`** di panel kiri untuk menentukan **Tier-1 Pinned Core**:
-   - **Judul & Nama Penulis / Nama Pena** (otomatis masuk ke metadata sampul `.EPUB`, halaman cetak PDF, dan frontmatter `.MD`).
-   - **Premis / Logline** dan **Main Objective (North Star)**: kompas utama dari Bab 1 sampai Tamat.
-   - **Sudut Pandang (POV)**, **Tone & Atmosfer**, serta **Contoh Gaya Bahasa Acuan (*Style Sample*)**: tempelkan 2–3 kalimat acuan ritme prosa yang ingin ditiru AI.
-   - **Negative Constraints / Banned Phrases**: daftar frasa klise AI yang otomatis diblokir di prompt dan dipotong bila muncul di ekor paragraf.
-   - **Profil Model GGUF**: pilih model aktif proyek Anda (klik **`⚡ Switch RAM`** untuk langsung memuatnya ke `llama-server`).
-   - **Cadangan & Pemulihan (`.json`)**: klik **`📦 Backup`** untuk mengunduh snapshot penuh proyek, atau **`📥 Restore`** untuk memulihkan berkas backup `.json` menjadi proyek utuh.
+Dengan adapter [backend/ai_provider.py](backend/ai_provider.py), seluruh proses AI (**Write Beat Streaming**, **Generate Beat Plan**, dan **AI State Extractor**) langsung berjalan lewat provider pilihan Anda dengan kecepatan cloud atau server GPU lokal lain.
 
-### Langkah 2 — Atur *Interactive Phase-Range Timeline* (Pita Atas)
-Pita di bagian atas membagi novel menjadi fase-fase terstruktur (misal *Bab 1–4 Opening*, *Bab 5–12 Early Development*, *Bab 13–15 Midpoint Twist*, dst.):
-- Klik salah satu kartu fase untuk melihat atau mengubah rentang bab, target **Tension Min–Max (%)**, **Fokus Pembangunan**, dan **Strict Phase Guardrails** (aturan pengunci agar AI tidak membocorkan rahasia akhir cerita atau memunculkan klimaks terlalu dini).
-
-### Langkah 3 — Isi *Codex / Lorebook* (Panel Kiri $\rightarrow$ Tab `Codex`)
-Simpan entitas **CHARACTER**, **LOCATION**, **WORLD_RULE**, **ITEM**, atau **LORE**:
-- Centang **Pinned (`📌`)** pada tokoh utama dan aturan dunia mutlak agar selalu masuk ke *Static Prefix*.
-- Entitas non-pinned tetap otomatis muncul di prompt hanya saat relevan berkat pencarian **SQLite FTS5 BM25 (`<1 ms`, 0 MB RAM)** berdasarkan kata kunci di adegan yang sedang ditulis.
-- Untuk karakter, pantau kolom **`Current State`** (`location`, `condition`, `emotional_state`, `inventory`, dan `knowledge`).
-
-### Langkah 4 — Atur Target Kata & *Narrative Mix* di *Mixing Console* (Panel Kanan)
-1. Pilih atau buat bab baru di tab **`Bab`** (panel kiri — lengkap dengan pelacak **Total Kata Seluruh Novel** & **Target Kata Harian** yang dapat diklik untuk disesuaikan).
-2. Di **Panel Kanan (*Chapter Mixing Console*)**, atur:
-   - **Target Kata Bab** (misal `2400` atau `3200` kata $\rightarrow$ sistem otomatis menghitung jumlah *Micro-Beats* yang presisi sekitar ±400 kata per beat).
-   - **Mode Pacing**:
-     - `SLOW_BURN` *(1 peristiwa besar per 3 beat — cocok untuk atmosfer & pembangunan batin)*
-     - `BALANCED` *(1 peristiwa besar per 2 beat)*
-     - `FAST_PACED` *(1 peristiwa besar tiap beat)*
-     - `FRENETIC_ACTION` *(tempo kejar-kejaran/pertarungan tinggi)*
-   - **5 Slider Komposisi Narrative Mix (`0–100%`)**: *World-Building Density*, *Internal Monologue*, *Sensory Atmosphere*, *Dialogue Ratio*, dan *Action Intensity*.
-   - **Ending Hook Style**: gaya penutup bab (*Cliffhanger*, *Emotional Echo*, *Revelation*, dll.).
-3. Jangan lupa klik **`💾 Simpan Pengaturan Bab`**.
-
-### Langkah 5 — Rancang Micro-Beats (`Generate Beat Plan`)
-Di area tengah (*Center Stage*), klik **`⚡ Generate Beat Plan`**:
-- AI *Plot Architect* (atau fallback engine deterministik bila `llama-server` sedang mati) akan memecah tujuan bab menjadi kartu-kartu **Micro-Beat** berurutan dengan target kata, kurva ketegangan (*Tension Curve*), jangkar panca indra (*Sensory Anchor*), fokus konflik, dan **Titik Berhenti Beat (*Stopping Point*)**.
-- Anda dapat memindahkan urutan beat (`▲` / `▼`), mengubah status penyuntingan (`Rencana` / `Draf Selesai` / `Final`), serta menyunting instruksi tiap kartu beat sebelum mulai menulis.
-
-### Langkah 6 — Tulis Naskah Real-Time (`Write Beat`), Revisi, Cari & Ganti, & `Extract State`
-1. Klik **`▶️ Write Beat`** pada kartu Micro-Beat pertama secara berurutan:
-   - Sistem merakit prompt **4-Tier Memory**: *Tier 1 (Core & Guardrails)* $\rightarrow$ *Tier 2 (Active Codex & Character State)* $\rightarrow$ *Tier 3 (Rolling Summary + 400 kata verbatim terakhir + hasil FTS5 BM25)* $\rightarrow$ *Tier 4 (Tugas Beat & 5 Slider)*.
-   - Jika Beat sudah berisi teks sebelumnya, sistem otomatis membuat **Auto-Snapshot Revisi** sebelum menimpa naskah (*Rewrite*) sehingga naskah lama tetap aman di **`🕒 Riwayat Versi`**.
-   - Prosa mengalir kata demi kata (**SSE Streaming**) ke editor, sementara *Anti-Summary Tail Trimming* otomatis membersihkan kalimat ceramah moral klise di akhir adegan.
-2. Setelah selesai menulis atau menyunting satu beat:
-   - **Auto-Save Otomatis:** Setiap suntingan manual di kotak teks beat otomatis tersimpan setelah 1,5 detik (`✓ Tersimpan`), dan posisi novel & bab terakhir otomatis diingat saat browser dimuat ulang.
-   - **Cari & Ganti (`🔎 Cari & Ganti` / `Alt+F`):** Ubah nama tokoh, tempat, atau istilah secara serentak di seluruh Beat dalam bab (snapshot riwayat otomatis tersimpan sebelum penggantian massal).
-   - Klik **`🧠 Extract State & Update Codex`** (opsi bawaan **⚡ Cepat <1ms** menjaga KV Cache Slot 0 tetap utuh di CPU 2-Core; atau pilih **🧠 AI Extractor Penuh** di panel kanan) agar ringkasan fakta, inventaris/lokasi karakter, serta `rolling_global_summary` diperbarui di SQLite FTS5.
-   - Klik **`🔍 Memori`** pada kartu beat untuk menginspeksi prompt 4-Tier & latensi FTS5 BM25 (`<1–4 ms`), atau tambah/hapus beat satu per satu (`+ Tambah 1 Micro-Beat` / `🗑️`).
-3. Gunakan **`📖 Mode Baca Utuh` (`Alt+R`)** untuk meninjau keseluruhan bab seperti halaman novel cetak lengkap dengan pengatur ukuran huruf (`A- / A / A+`), navigasi antabab, dan **`📋 Salin Bab`**, **`🧘 Zen Mode` (`Alt+Z`)**, serta tema **☀️ Parchment / 🌙 Obsidian**.
-
-### Langkah 7 — Kompilasi & Unduh Novel (`.EPUB`, Cetak PDF, `.MD`)
-Klik **`📤 Ekspor`** di header kanan atas (tersedia di Desktop maupun HP) untuk memilih format:
-- **`📘 Ebook (.EPUB)`**: Menggabungkan seluruh bab dan adegan menjadi berkas `.epub` standar penerbit (lengkap dengan metadata judul, nama penulis, halaman judul, sinopsis, tipografi buku cetak, pemisah adegan `* * *`, dan Daftar Isi otomatis).
-- **`🖨️ Cetak / Save PDF`**: Membuka tata letak buku A5 siap cetak untuk langsung dicetak atau disimpan menjadi `.pdf` lewat dialog Print browser (`Ctrl+P`).
-- **`📄 Novel Penuh (.MD)`** & **`📝 Bab Aktif (.MD)`**: Mengompilasi naskah lengkap beserta YAML Frontmatter, Daftar Isi, dan lampiran Story Bible menjadi berkas Markdown rapi.
-
----
-
-## 4. Kurasi Model AI GGUF: Spesifikasi, Plus/Minus, & Rekomendasi
-
-> **Penting untuk Hardware CPU-Only vs RAM 8–12 GB:**
-> - **Kecepatan di CPU 2-Core (seperti Intel Celeron 4305U):** kecepatan generasi sangat bergantung pada ukuran file `.gguf` dan bandwidth RAM. Model **1.7B–3B** jauh lebih nyaman untuk menulis interaktif harian; model **7B–8B** menghasilkan prosa lebih matang tetapi butuh waktu tunggu jauh lebih lama per beat di CPU 2-Core (lebih cocok di CPU 4–8 Core atau GPU).
-> - **KV Cache Cerdas Otomatis:** Keluarga Qwen sangat sensitif terhadap kuantisasi KV Cache `q4_0`. Studio secara otomatis memakai **`f16` KV Cache** untuk model ringan $\le 2.6\text{ GB}$ dan **`q8_0` KV Cache** untuk model 7B+ agar tata bahasa Indonesia tetap 100% jernih dan bebas kata rusak.
-
-### Daftar Model Rekomendasi (Semua URL Publik Terverifikasi Bebas Login)
-
-#### Tier 1 — Ultra-Ringan & Cepat (Optimal untuk CPU 2-Core & RAM 4–8 GB)
-
-| Model (File `.gguf`) | Ukuran File | Min. RAM / CPU | Kelebihan (+) | Kekurangan (-) | Cocok Untuk |
-| :--- | :---: | :---: | :--- | :--- | :--- |
-| **`Qwen2.5-3B-Instruct-Q4_K_M.gguf`** *(Terpasang Default)* | **1.80 GB** (`1840.5 MB`) | **RAM 4 GB+**<br>CPU 2 Core+ | • Titik seimbang terbaik CPU 2-Core.<br>• Bahasa Indonesia baku alami.<br>• Sangat patuh JSON *Plot Architect* & *State Extractor*. | • Metafora sastra tidak sedalam model *fine-tune* novel 7B/12B. | **Penggunaan harian utama** di laptop Celeron / RAM 8 GB. |
-| **`Qwen2.5-3B-Instruct-Q5_K_M.gguf`** | **2.07 GB** (`2121.7 MB`) | **RAM 6 GB+**<br>CPU 2 Core+ | • Presisi diksi dan struktur kalimat lebih tajam daripada Q4_K_M.<br>• Tetap enteng di RAM. | • ~15% lebih lambat di CPU Celeron dibanding versi Q4_K_M. | Menulis prosa Bahasa Indonesia di CPU 2–4 Core dengan kualitas lebih rapi. |
-| **`Qwen3-1.7B-Q4_K_M.gguf`** | **1.03 GB** (`1056.1 MB`) | **RAM 4 GB+**<br>CPU 2 Core+ | • Ukuran super kecil (~1 GB), sangat cepat di CPU lambat.<br>• Ringan saat membuka banyak aplikasi. | • Kosa kata, variasi gaya bahasa, & pemahaman lore panjang masih terbatas. | *Brainstorming* cepat, merancang beat awal, atau laptop RAM 4 GB. |
-| **`gemma-2-2b-it-Q4_K_M.gguf`** | **1.59 GB** (`1629.4 MB`) | **RAM 4 GB+**<br>CPU 2 Core+ | • Gaya kalimat khas Google Gemma terasa hangat, luwes, & ekspresif.<br>• Cepat di CPU 2-Core. | • Penguasaan idiom Bahasa Indonesia & kepatuhan JSON ketat kalah dari Qwen 2.5 3B. | Novel fiksi ringan, narasi personal, atau tulisan berbahasa Inggris. |
-| **`Llama-3.2-3B-Instruct-Q4_K_M.gguf`** | **1.88 GB** (`1925.8 MB`) | **RAM 6 GB+**<br>CPU 2 Core+ | • Dialog berbahasa **Inggris** terasa hidup, ringkas, & berirama cepat. | • Untuk prosa **Bahasa Indonesia**, tata bahasa masih sering terasa seperti terjemahan. | Penulis novel berbahasa **Inggris**. |
-
-#### Tier 2 — Menengah Modern ("Upgrade Terbaik untuk RAM 8–12 GB")
-
-| Model (File `.gguf`) | Ukuran File | Min. RAM / CPU | Kelebihan (+) | Kekurangan (-) | Cocok Untuk |
-| :--- | :---: | :---: | :--- | :--- | :--- |
-| **`Qwen_Qwen3-4B-Q4_K_M.gguf`** | **2.33 GB** (`2381.6 MB`) | **RAM 8 GB+**<br>CPU 2–4 Core+ | • Lompatan kecerdasan nalar adegan, subteks karakter, & Bahasa Indonesia jauh di atas 3B.<br>• Studio otomatis menonaktifkan mode `<think>` (`--reasoning off`) sehingga langsung menulis prosa. | • ~25–35% lebih lambat di CPU Celeron 2-Core dibanding Qwen2.5-3B. | Upgrade kualitas prosa & logika plot yang masih nyaman di RAM 8–12 GB. |
-
-#### Tier 3 — Kelas Sastra & Kreatif Profesional (7B–8B, Ideal CPU 4–8 Core / GPU)
-
-| Model (File `.gguf`) | Ukuran File | Min. RAM / CPU | Kelebihan (+) | Kekurangan (-) | Cocok Untuk |
-| :--- | :---: | :---: | :--- | :--- | :--- |
-| **`EVA-Qwen2.5-7B-v0.1-IQ4_XS.gguf`** | **3.93 GB** (`4023.0 MB`) | **RAM 8 GB+**<br>CPU 4+ Core / GPU | • **Raja Prosa Kreatif Indonesia/Inggris.** *Fine-tuned* khusus penulisan cerita.<br>• Deskripsi panca indra (*Show Don't Tell*), emosi, & metafora kaya, jauh dari kesan robot. | • Di CPU Celeron 2-Core terasa lambat (butuh beberapa menit per beat 400 kata). | Menulis bab klimaks / polesan sastra akhir, atau jika berjalan di Core i5/Ryzen/GPU. |
-| **`Qwen2.5-7B-Instruct-IQ4_XS.gguf`** | **3.93 GB** (`4023.0 MB`) | **RAM 8 GB+**<br>CPU 4+ Core / GPU | • Paling disiplin mematuhi *Phase Guardrails*, aturan dunia kompleks, dan target struktur bab. | • Nada kalimat sedikit lebih formal dibanding EVA-Qwen2.5-7B; lambat di CPU 2-Core. | Novel misteri detektif, *hard sci-fi*, atau fantasi dengan aturan dunia ketat. |
-| **`L3-8B-Stheno-v3.2-IQ4_XS.gguf`** | **4.14 GB** (`4241.6 MB`) | **RAM 8 GB+**<br>CPU 4+ Core / GPU | • Spesialis dialog tajam, konflik interpersonal gelap/intens, & adegan aksi/thriller. | • Kurang optimal untuk Bahasa Indonesia murni (lebih bersinar di Bahasa Inggris); lambat di 2-Core. | Novel thriller/aksi/gelap (terutama Bahasa Inggris). |
-| **`Qwen_Qwen3-8B-IQ4_XS.gguf`** | **4.25 GB** (`4350.5 MB`) | **RAM 10 GB+**<br>CPU 4+ Core / GPU | • Nalar sebab-akibat antarkarakter paling tajam di kelas 8B & Bahasa Indonesia sangat matang. | • Berat di CPU Celeron 2-Core; butuh RAM luang ~5.3 GB saat aktif. | Penulisan serius jangka panjang di perangkat 4–8 Core atau GPU. |
-
-#### Tier 4 — Kelas Workstation Sastra (12B, Khusus RAM >= 12–16 GB / GPU)
-
-| Model (File `.gguf`) | Ukuran File | Min. RAM / CPU | Kelebihan (+) | Kekurangan (-) | Cocok Untuk |
-| :--- | :---: | :---: | :--- | :--- | :--- |
-| **`MN-12B-Celeste-V1.9-IQ4_XS.gguf`** | **6.28 GB** (`6430.3 MB`) | **RAM 12–16 GB+**<br>CPU 6+ Core / GPU | • *Creative writing fine-tune* berkelas di atas Mistral Nemo 12B — diksi puitis kaya dan nyaris tanpa klise AI. | • Memakan **~7.6 GB RAM** (terlalu mepet jika membuka browser berat di 12 GB RAM, tidak muat di 8 GB RAM) & sangat lambat tanpa GPU. | PC/Laptop RAM 16 GB+ dengan GPU atau CPU modern cepat. |
-
----
-
-## 5. Cara Download, Menambah Model Kustom, & Ganti Model (Switch RAM)
-
-Studio menyediakan **3 cara mudah** untuk menambah dan mengganti model AI tanpa pernah mengedit skrip:
-
-### Cara A — Lewat Tombol Pengelola Sumber AI & Model di Web UI (Paling Mudah)
-1. Klik badge status AI di pojok kanan atas layar (bertuliskan **`AI: ...`**, **`🌐 API: ...`**, atau **`Model AI OFFLINE • Pilih`**).
-2. Di jendela **Pengelola Sumber AI**, Anda memiliki 4 tab:
-   - **💾 Model Lokal**: Memilih model `.gguf` lokal (`🔄 Switch & Muat`) atau mengimpor dari folder `Downloads`.
-   - **🌐 API Online & Sumber Lain**: Hubungkan Studio ke model online atau server kompatibel lain tanpa membebani CPU/RAM lokal — mendukung preset **OpenRouter** (banyak model & tier gratis `:free`), **Google Gemini** (`AI Studio API`), **Groq**, **OpenAI**, **DeepSeek**, **Mistral AI**, **Anthropic Claude**, serta server lokal/LAN **Ollama**, **LM Studio**, **KoboldCpp**, atau **vLLM**. Dilengkapi pengambil daftar model otomatis (**`🔍 Ambil Daftar Model`**), penguji koneksi (**`⚡ Uji Koneksi API`**), penyimpanan API key lokal terproteksi (`0600` di `backend/.ai_provider_config.json`), serta tombol **`↩️ Kembali ke Mode Lokal`**.
-   - **📚 Katalog GGUF**: Lihat daftar lengkap 11 model beserta *RAM minimal*, *Kelebihan (+)*, dan *Kekurangan (-)*, lalu klik **`⬇️ Unduh GGUF`**. Progres unduhan tampil real-time dan dapat dilanjutkan (**`Lanjutkan`**) kapan saja bila koneksi terputus.
-   - **➕ Unduh GGUF Kustom**: Tempel **URL HTTPS `.gguf`** (link `/blob/main/` otomatis dikonversi ke `/resolve/main/`) **atau** **Repo ID** HuggingFace + nama file `.gguf`, lalu klik **`⬇️ Verifikasi & Unduh ke Studio`**.
-
-### Cara B — Impor File `.gguf` Hasil Download Manual (Browser / Folder `Downloads`)
-Jika Anda mengunduh berkas `.gguf` memakai browser (Chrome/Firefox/Safari) atau IDM ke folder `Downloads` (Linux `~/Downloads/`, Windows `%USERPROFILE%\Downloads\`, macOS `~/Downloads/`):
-1. Buka modal Pengelola Model $\rightarrow$ tab **💾 Model Lokal** $\rightarrow$ klik **`🔄 Pindai Disk`**.
-2. File `.gguf` yang berada di folder `Downloads` akan terdeteksi di bagian **"📂 File .GGUF Ditemukan di Folder Downloads"**.
-3. Klik **`📥 Pindahkan ke Studio (models/)`**, lalu klik **`🔄 Switch & Muat`**.
-
-*(Atau salin langsung secara manual lewat File Manager / Explorer / Finder ke folder `models/` di dalam direktori `novelpro`.)*
-
-### Cara C — Lewat Terminal (`curl` Resumable) atau API Switching Langsung
-Contoh mengunduh **Qwen 3 4B (`2.33 GB`)** dengan fitur resume `-C -` di Linux / macOS / Termux (dan `curl.exe` di Windows PowerShell):
-
-**Linux / macOS / Android Termux:**
-```bash
-cd /path/to/novelpro
-curl -L -C - "https://huggingface.co/bartowski/Qwen_Qwen3-4B-GGUF/resolve/main/Qwen_Qwen3-4B-Q4_K_M.gguf" \
-  -o models/Qwen_Qwen3-4B-Q4_K_M.gguf.part && \
-  mv models/Qwen_Qwen3-4B-Q4_K_M.gguf.part models/Qwen_Qwen3-4B-Q4_K_M.gguf
-```
-
-**Windows PowerShell:**
-```powershell
-cd C:\path\to\novelpro
-curl.exe -L -C - "https://huggingface.co/bartowski/Qwen_Qwen3-4B-GGUF/resolve/main/Qwen_Qwen3-4B-Q4_K_M.gguf" -o models\Qwen_Qwen3-4B-Q4_K_M.gguf.part
-Move-Item -Force models\Qwen_Qwen3-4B-Q4_K_M.gguf.part models\Qwen_Qwen3-4B-Q4_K_M.gguf
-```
-
-Contoh memanggil **API Model Switcher** secara terprogram (Linux/macOS/Windows WSL/PowerShell):
-```bash
-# Lihat model lokal, progres download, & katalog
-curl -s http://127.0.0.1:8000/api/models
-
-# Ganti model aktif di RAM secara otomatis
-curl -X POST http://127.0.0.1:8000/api/models/switch \
-  -H "Content-Type: application/json" \
-  -d '{"model_identifier": "Qwen_Qwen3-4B-Q4_K_M.gguf"}'
-
-# Matikan llama-server untuk membebaskan RAM
-curl -X POST http://127.0.0.1:8000/api/models/stop
-```
-
----
-
-## 6. Menggunakan API Model AI Online & Sumber Lain (Gemini, OpenRouter, Groq, OpenAI, Claude, Ollama)
-
-Jika Anda memakai laptop hemat daya (seperti CPU 2-Core), ingin langsung mencoba model raksasa (DeepSeek, Gemini 2.5, Qwen 72B, Claude, GPT-4o), atau ingin menyambung ke server GPU lain (**Ollama / LM Studio / vLLM**), Anda dapat menjalankan seluruh Studio **tanpa perlu mengunduh file `.gguf` atau menyalakan `llama-server` lokal**.
-
-Adapter di [backend/ai_provider.py](backend/ai_provider.py) otomatis mengarahkan ketiga proses AI (**Write Beat Streaming SSE**, **AI Plot Architect / Generate Beats**, dan **Post-Beat State Extractor**) ke provider aktif yang Anda pilih.
-
-### Daftar Preset & Sumber Kompatibel Bawaan
-
-| Provider / Sumber | Protokol | Base URL Bawaan | Contoh Model ID | API Key |
+#### Daftar Sumber Kompatibel yang Tersedia di Preset
+| Provider / Sumber | Protokol | Base URL | Contoh Model | API Key |
 | :--- | :--- | :--- | :--- | :---: |
-| **OpenRouter** | `openai_compatible` | `https://openrouter.ai/api/v1` | `deepseek/deepseek-chat-v3-0324:free`, `qwen/qwen-2.5-72b-instruct` | Wajib |
-| **Google Gemini** | `openai_compatible` | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash`, `gemini-2.5-pro` | Wajib |
-| **Groq Cloud** | `openai_compatible` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile`, `qwen-qwq-32b` | Wajib |
+| **OpenRouter** *(Rekomendasi fleksibel)* | `openai_compatible` | `https://openrouter.ai/api/v1` | `deepseek/deepseek-chat-v3-0324:free`, `qwen/qwen-2.5-72b-instruct` | Wajib |
+| **Google Gemini** *(AI Studio)* | `openai_compatible` | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash`, `gemini-2.5-pro` | Wajib |
+| **Groq Cloud** *(Super Cepat)* | `openai_compatible` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile`, `qwen-qwq-32b` | Wajib |
 | **OpenAI** | `openai_compatible` | `https://api.openai.com/v1` | `gpt-4o-mini`, `gpt-4.1` | Wajib |
 | **DeepSeek API** | `openai_compatible` | `https://api.deepseek.com/v1` | `deepseek-chat`, `deepseek-reasoner` | Wajib |
 | **Mistral AI** | `openai_compatible` | `https://api.mistral.ai/v1` | `mistral-small-latest`, `mistral-large-latest` | Wajib |
 | **Anthropic Claude** | `anthropic` | `https://api.anthropic.com/v1` | `claude-3-5-sonnet-latest`, `claude-3-7-sonnet-latest` | Wajib |
-| **Ollama (Lokal / LAN)** | `openai_compatible` | `http://127.0.0.1:11434/v1` | `qwen2.5:7b`, `gemma2:9b` | Opsional |
-| **LM Studio / KoboldCpp / vLLM** | `openai_compatible` | `http://127.0.0.1:1234/v1` *(atau URL kustom)* | Sesuai model yang dimuat di server | Opsional |
+| **Ollama (Lokal / Wi-Fi LAN)** | `openai_compatible` | `http://127.0.0.1:11434/v1` | `qwen2.5:7b`, `gemma2:9b` | Tidak wajib |
+| **LM Studio / KoboldCpp / vLLM** | `openai_compatible` | `http://127.0.0.1:1234/v1` *(atau URL kustom)* | Sesuai model aktif | Tidak wajib |
 
-### Cara Mengaktifkan Lewat Web UI (Paling Praktis)
-1. Klik badge status AI di pojok kanan atas layar (bertuliskan **`AI: ...`**, **`🌐 API: ...`**, atau **`Model AI OFFLINE • Pilih`**).
-2. Pilih tab **`🌐 API Online & Sumber Lain`**.
-3. Klik salah satu kartu **Preset Sumber AI** *(misal Google Gemini, OpenRouter, Groq, DeepSeek, Anthropic, atau Ollama)* untuk mengisi **Protokol** dan **Base URL** secara otomatis.
-4. Isi **Nama / ID Model**, atau klik **`🔍 Ambil Daftar Model`** agar Studio mengambil daftar model langsung dari server (`/v1/models`).
-5. Tempel **API Key** Anda *(kosongkan jika memakai Ollama/LM Studio lokal tanpa autentikasi)*. Key disimpan secara lokal saja di `backend/.ai_provider_config.json` dengan izin `0600` (sudah dikecualikan di `.gitignore`).
-6. *(Opsional)* Biarkan centang **Matikan `llama-server` lokal otomatis** aktif agar RAM ±2 GB langsung dibebaskan saat beralih ke mode online.
-7. Klik **`⚡ Uji Koneksi API`** untuk memastikan respon dan latensi berjalan normal, lalu klik **`✅ Simpan & Aktifkan Sumber AI Ini`**.
-8. Kapan pun ingin kembali ke model `.gguf` offline lokal, klik **`↩️ Kembali ke Mode Lokal`** atau pilih model di tab **`💾 Model Lokal`**.
+#### Langkah Mengaktifkan Lewat Web UI
+1. Klik badge status AI di pojok kanan atas layar (`AI: ...` / `Model AI OFFLINE • Pilih`).
+2. Buka tab **`🌐 API Online & Sumber Lain`**.
+3. Klik salah satu kartu **Preset** (misalnya *Google Gemini* atau *OpenRouter*) — **Protokol** dan **Base URL** otomatis terisi.
+4. Isi **Nama / ID Model** *(atau tekan **`🔍 Ambil Daftar Model`** untuk memilih dari daftar server)*.
+5. Tempel **API Key** *(disimpan lokal aman dengan izin `0600` di `backend/.ai_provider_config.json`; kosongkan jika memakai Ollama/LM Studio tanpa key)*.
+6. Biarkan opsi **Matikan `llama-server` lokal otomatis** tercentang agar RAM ±2 GB langsung dibebaskan.
+7. Klik **`⚡ Uji Koneksi API`** hingga muncul tanda hijau sukses, lalu klik **`✅ Simpan & Aktifkan Sumber AI Ini`**.
+8. Untuk kembali ke mode lokal `.gguf` kapan saja, klik **`↩️ Kembali ke Mode Lokal`**.
 
-### Opsi Konfigurasi via Environment Variables (Headless / CLI)
-Jika ingin langsung mengarahkan Studio ke API eksternal saat menyalakan `uvicorn` atau `./start_studio.sh`:
+<details>
+<summary>Opsional: Cara Mengatur API Online via Environment Variables atau REST API (curl)</summary>
+
+**Via Environment Variables sebelum menyalakan Studio:**
 ```bash
 export NOVEL_AI_PROVIDER="openai_compatible" # atau "anthropic" / "local_llama"
 export NOVEL_AI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
 export NOVEL_AI_MODEL="gemini-2.5-flash"
-export NOVEL_AI_API_KEY="AIzaSy..."
+export NOVEL_AI_API_KEY="API_KEY_ANDA"
 ./start_studio.sh
 ```
 
-### Contoh Pengaturan Provider via REST API (`curl`)
+**Via REST API (`curl`):**
 ```bash
-# Cek status provider aktif (API key tersamar)
-curl -s http://127.0.0.1:8000/api/ai/provider
-
-# Aktifkan API Online (contoh: Google Gemini AI Studio)
+# Aktifkan provider online (contoh Google Gemini)
 curl -X POST http://127.0.0.1:8000/api/ai/provider \
   -H "Content-Type: application/json" \
   -d '{
@@ -552,19 +370,95 @@ curl -X POST http://127.0.0.1:8000/api/ai/provider \
     "stop_local_llama": true
   }'
 
-# Kembali ke mode lokal llama-server GGUF
+# Kembali ke Mode Lokal llama-server
 curl -X POST http://127.0.0.1:8000/api/ai/provider \
   -H "Content-Type: application/json" \
   -d '{"provider_type": "local_llama", "preset_id": "local_llama"}'
 ```
 
+</details>
+
 ---
 
-## 7. Pengamanan Cloudflare Tunnel (Akses Internet Aman)
+### 5B. Cara Memilih, Mengunduh, & Mengganti Model Lokal (`.GGUF`)
 
-Jika Anda ingin menulis dari HP/laptop lain di luar rumah via Internet **tanpa membuka port router** (berlaku di Linux, Windows, maupun macOS), gunakan modul keamanan bawaan [backend/security_config.py](backend/security_config.py):
+> **Catatan CPU 2-Core vs RAM 8–16 GB:**
+> - Di **CPU 2-Core** (mis. Intel Celeron), model **1.7B–3B** jauh lebih nyaman (`Qwen3-1.7B` ±2x lebih cepat daripada `3B`). Model **7B–12B** lebih cocok di **CPU 4–8 Core**, **Apple Silicon**, atau **GPU Vulkan/CUDA**.
+> - Studio otomatis menyetel *KV Cache* **`f16`** untuk model $\le 2.6\text{ GB}$ (mencegah bahasa Indonesia menjadi rusak/acak pada seri Qwen) dan **`q8_0`** untuk model `7B+`, serta menambahkan `--reasoning off` pada model Qwen3.
 
-1. **Generate bundel konfigurasi keamanan (sekali saja):**
+#### Katalog 11 Model Rekomendasi (Bebas Login HuggingFace)
+
+| Kelompok | Nama File `.gguf` | Ukuran | Min. RAM / CPU | Kelebihan (+) | Kekurangan (-) |
+| :--- | :--- | :---: | :---: | :--- | :--- |
+| **Tier 1 (Ringan CPU 2-Core)** | **`Qwen2.5-3B-Instruct-Q4_K_M.gguf`** *(Default)* | 1.80 GB | 4 GB+ / 2 Core | Titik seimbang terbaik CPU 2-Core, Bahasa Indonesia rapi, patuh JSON. | Metafora sastra kalah dalam dibanding 7B/12B. |
+| **Tier 1 (Ringan Presisi)** | **`Qwen2.5-3B-Instruct-Q5_K_M.gguf`** | 2.07 GB | 6 GB+ / 2 Core | Diksi & struktur kalimat lebih presisi daripada Q4_K_M. | ~15% lebih lambat di CPU Celeron. |
+| **Tier 1 (Super Kilat / HP)** | **`Qwen3-1.7B-Q4_K_M.gguf`** | 1.03 GB | 4 GB+ / 2 Core | Sangat enteng & cepat di CPU lambat / HP Android Termux. | Kosa kata sastra & lore panjang terbatas. |
+| **Tier 1 (Prosa Mengalir)** | **`gemma-2-2b-it-Q4_K_M.gguf`** | 1.59 GB | 4 GB+ / 2 Core | Gaya kalimat luwes & hangat khas Gemma. | Idiom Indonesia & JSON ketat kalah dari Qwen 2.5 3B. |
+| **Tier 1 (Khusus B. Inggris)** | **`Llama-3.2-3B-Instruct-Q4_K_M.gguf`** | 1.88 GB | 6 GB+ / 2 Core | Dialog Bahasa Inggris ringkas dan hidup. | Bahasa Indonesia sering terasa kaku seperti terjemahan. |
+| **Tier 2 (Upgrade 8–12 GB)** | **`Qwen_Qwen3-4B-Q4_K_M.gguf`** | 2.33 GB | 8 GB+ / 2–4 Core | Lompatan besar nalar subteks karakter & Bahasa Indonesia. | ~25–35% lebih lambat di Celeron 2-Core vs 3B. |
+| **Tier 3 (Sastra 7B–8B)** | **`EVA-Qwen2.5-7B-v0.1-IQ4_XS.gguf`** | 3.93 GB | 8 GB+ / 4+ Core atau GPU | *Fine-tune* khusus cerita kreatif; *Show, Don't Tell* sangat kaya. | Lambat jika dijalankan hanya pada CPU 2-Core. |
+| **Tier 3 (Disiplin Plot)** | **`Qwen2.5-7B-Instruct-IQ4_XS.gguf`** | 3.93 GB | 8 GB+ / 4+ Core atau GPU | Sangat disiplin mematuhi *Phase Guardrails* & dunia kompleks. | Nada sedikit lebih formal dibanding EVA-Qwen2.5-7B. |
+| **Tier 3 (Aksi / Thriller)** | **`L3-8B-Stheno-v3.2-IQ4_XS.gguf`** | 4.14 GB | 8 GB+ / 4+ Core atau GPU | Dialog tajam, intensitas konflik gelap & aksi kuat. | Bersinar di Bahasa Inggris; kurang optimal untuk Indonesia murni. |
+| **Tier 3 (Nalar Tajam 8B)** | **`Qwen_Qwen3-8B-IQ4_XS.gguf`** | 4.25 GB | 10 GB+ / 4+ Core atau GPU | Nalar sebab-akibat antarkarakter paling tajam di kelas 8B. | Berat di RAM ~5.3 GB saat aktif. |
+| **Tier 4 (Workstation 12B)** | **`MN-12B-Celeste-V1.9-IQ4_XS.gguf`** | 6.28 GB | 12–16 GB+ / GPU | Prosa sastra puitis tingkat lanjut, nyaris tanpa klise AI. | Memakai ~7.6 GB RAM; tidak cocok untuk laptop RAM 8 GB. |
+
+#### 3 Cara Menambah & Mengganti Model Lokal
+1. **Lewat Web UI (Paling Mudah):**
+   Klik badge status AI di pojok kanan atas $\rightarrow$ pilih tab **`📚 Katalog GGUF`** untuk mengunduh model rekomendasi (atau **`➕ Unduh GGUF Kustom`** dengan menempel URL `.gguf` / Repo ID HuggingFace dari `bartowski/*`, `unsloth/*`, atau `mradermacher/*`). Setelah selesai, buka tab **`💾 Model Lokal`** $\rightarrow$ klik **`🔄 Switch & Muat`**.
+2. **Impor dari Folder `Downloads`:**
+   Bila mengunduh `.gguf` lewat browser/IDM ke folder `Downloads`, buka tab **`💾 Model Lokal`** $\rightarrow$ klik **`🔄 Refresh Status`** $\rightarrow$ klik **`📥 Pindahkan ke Studio (models/)`** $\rightarrow$ **`🔄 Switch & Muat`**.
+3. **Lewat Terminal (`curl` dengan resume `-C -`):**
+   ```bash
+   # Contoh: mengunduh Qwen 3 4B (2.33 GB)
+   curl -L -C - "https://huggingface.co/bartowski/Qwen_Qwen3-4B-GGUF/resolve/main/Qwen_Qwen3-4B-Q4_K_M.gguf" \
+     -o models/Qwen_Qwen3-4B-Q4_K_M.gguf.part && \
+     mv models/Qwen_Qwen3-4B-Q4_K_M.gguf.part models/Qwen_Qwen3-4B-Q4_K_M.gguf
+   ```
+
+---
+
+## 6. Tutorial 3 — Panduan Menulis Novel dari Awal sampai Ekspor
+
+Studio menyertakan 1 proyek contoh (**"Senja di Pelabuhan Sunda"**) agar Anda langsung bisa mencoba alur penulisannya:
+
+1. **Langkah 1 — Buat Novel & Isi Core Compass (Panel Kiri $\rightarrow$ Tab `Compass`):**
+   - Klik **`+ Novel`** di pojok kiri atas (atau ubah proyek aktif).
+   - Lengkapi **Judul**, **Nama Penulis / Pena**, **Premis**, **North Star**, **POV**, **Contoh Gaya Bahasa (*Style Sample*)**, dan **Banned Phrases**.
+   - Gunakan **`📦 Backup`** kapan saja untuk mengunduh cadangan penuh proyek (`.json`), dan **`📥 Restore`** untuk memulihkan berkas `.json` tersebut menjadi proyek baru yang utuh.
+2. **Langkah 2 — Atur Phase-Range Timeline (Pita Atas):**
+   - Klik kartu fase (*Bab 1–3 Opening*, dst.) untuk menyesuaikan target ketegangan (**Tension Min–Max %**) dan **Strict Phase Guardrails** agar AI menjaga batas konflik bab.
+3. **Langkah 3 — Isi Codex / Lorebook (Panel Kiri $\rightarrow$ Tab `Codex`):**
+   - Tambahkan **CHARACTER**, **LOCATION**, **WORLD_RULE**, **ITEM**, atau **LORE**. Centang **📌 Pin** untuk elemen mutlak utama; sisanya tetap otomatis terbaca oleh pencarian **FTS5 BM25 (`<1 ms`)**.
+4. **Langkah 4 — Atur Target Kata & Narrative Mix (Panel Kanan):**
+   - Di tab **`Bab`**, pantau progres **Total Naskah** seluruh novel serta **Target Kata Harian** (klik angka target harian untuk menyesuaikannya).
+   - Pilih bab di sebelah kiri, atur **Target Kata Bab**, **Mode Pacing** (`SLOW_BURN` / `BALANCED` / `FAST_PACED` / `FRENETIC_ACTION`), dan **5 Slider Narrative Mix** di panel kanan, lalu klik **`💾 Simpan Pengaturan Bab`**.
+5. **Langkah 5 — Rancang Micro-Beats (`⚡ Generate Beat Plan`):**
+   - Klik **`⚡ Generate Beat Plan`** untuk memecah tujuan bab menjadi kartu adegan terurut. Anda bebas menyunting instruksi, menggeser urutan beat (`▲` / `▼`), menambah/menghapus beat, dan memilih status penyuntingan (**`Rencana`** / **`Draf Selesai`** / **`Final / Sunting`**).
+6. **Langkah 6 — Menulis, Menyunting, & Extract State:**
+   - Klik **`▶️ Write Beat`** untuk mengalirkan prosa secara *real-time* (bila beat sudah berisi teks, sistem otomatis membuat **Auto-Snapshot** di `🕒 Riwayat Versi` sebelum menimpanya).
+   - **Auto-Save:** Suntingan manual otomatis tersimpan setelah 1,5 detik (`✓ Tersimpan`), dan studio mengingat novel serta bab terakhir yang dibuka saat halaman di-refresh.
+   - **Cari & Ganti (`🔎 Cari & Ganti` / `Alt+F`):** Ganti nama tokoh atau istilah serentak di seluruh beat dalam bab aktif (dilengkapi snapshot riwayat otomatis sebelum mengganti).
+   - Klik **`🧠 Extract State & Update Codex`** seusai menulis beat agar ringkasan dan kondisi karakter terus terbarui ke memori jangka panjang.
+7. **Langkah 7 — Kompilasi & Ekspor Naskah (`📤 Ekspor`):**
+   - Klik **`📤 Ekspor`** di pojok kanan atas (tersedia di Desktop & HP) untuk memilih format:
+     - **`📘 Ebook (.EPUB)`** standar penerbit (lengkap metadata, judul, sinopsis, tipografi buku, pemisah `* * *`, dan Daftar Isi otomatis),
+     - **`🖨️ Cetak / Save PDF`** (tata letak buku A5 siap cetak atau simpan PDF via `Ctrl+P`),
+     - **`📄 Novel Penuh (.MD)`** (lengkap dengan lampiran Story Bible & Codex), atau **`📝 Bab Aktif (.MD)`**.
+
+### Pintasan Keyboard Cepat
+| Pintasan | Fungsi |
+| :--- | :--- |
+| **`Alt + Z`** | Masuk / keluar **Zen Mode** (menyembunyikan panel samping agar fokus menulis) |
+| **`Alt + R`** | Beralih antara **Mode Kartu Beat** dan **📖 Mode Baca Utuh** (`A- / A / A+` & navigasi bab) |
+| **`Alt + F`** | Membuka / menutup **🔎 Cari & Ganti** di seluruh beat pada bab aktif |
+
+---
+
+## 7. Tutorial Lanjutan — Akses Internet Aman via Cloudflare Tunnel (Opsional)
+
+Gunakan langkah ini hanya jika Anda ingin mengakses Studio dari HP/laptop di luar rumah **tanpa membuka port router**:
+
+1. **Generate konfigurasi keamanan (sekali saja):**
    - **Linux / macOS:**
      ```bash
      cd /path/to/novelpro
@@ -581,67 +475,43 @@ Jika Anda ingin menulis dari HP/laptop lain di luar rumah via Internet **tanpa m
        --team-domain nama-tim.cloudflareaccess.com `
        --email email-anda@domain.com
      ```
-   Perintah ini membuat:
-   - `backend/.env.security` (izin file `0600` berisi token rahasia 256-bit `NOVEL_TUNNEL_SECRET` & `CF_ACCESS_SIGNATURE_SECRET`),
-   - `deploy/cloudflared-config.yml`,
-   - `deploy/Caddyfile.cloudflare`,
-   - `deploy/setup_ufw_cloudflare.sh`, dan panduan lengkap `deploy/PANDUAN_CLOUDFLARE_TUNNEL.md`.
-
-2. **Tutup akses IP langsung & jalankan `cloudflared`:**
-   - **Linux:** Jalankan `sudo bash deploy/setup_ufw_cloudflare.sh`. Saat `NOVEL_SECURITY_MODE=STRICT_CLOUDFLARE` aktif di `backend/.env.security`, `start_studio.sh` otomatis mengikat FastAPI hanya pada `127.0.0.1:8000`.
-   - **Windows / macOS:** Pasang binary [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) (`winget install Cloudflare.cloudflared` di Windows atau `brew install cloudflared` di macOS), pastikan `uvicorn` berjalan dengan `--host 127.0.0.1`, lalu ikuti langkah login & run tunnel di `deploy/PANDUAN_CLOUDFLARE_TUNNEL.md`.
-   - FastAPI menolak setiap request tanpa validasi header Cloudflare Tunnel (`X-Novel-Tunnel-Token`, `CF-Access-Client-Signature` HMAC-SHA256, Service Token, atau `Cf-Access-Jwt-Assertion`) dengan respons `403 Forbidden`.
+2. **Aktifkan penguncian & jalankan `cloudflared`:**
+   - **Linux:** Jalankan `sudo bash deploy/setup_ufw_cloudflare.sh`. Saat `NOVEL_SECURITY_MODE=STRICT_CLOUDFLARE` aktif di `backend/.env.security`, `start_studio.sh` otomatis mengikat FastAPI pada `127.0.0.1:8000` dan menolak request tanpa header validasi Cloudflare (`403 Forbidden`).
+   - **Windows / macOS:** Pasang `cloudflared` (`winget install Cloudflare.cloudflared` / `brew install cloudflared`), jalankan `uvicorn` dengan `--host 127.0.0.1`, lalu ikuti panduan langkah tunnel di `deploy/PANDUAN_CLOUDFLARE_TUNNEL.md`.
 
 ---
 
-## 8. Optimasi ZRAM (Linux) & Troubleshooting Lintas OS
+## 8. Lampiran — Optimasi ZRAM (Linux) & Troubleshooting Cepat
 
-### Aktifkan ZRAM di Linux (Sangat Disarankan di RAM 8 GB)
-Jika di Linux Mint / Ubuntu / Debian saat instalasi awal belum menjalankan `sudo` untuk ZRAM, jalankan satu kali di terminal:
+### Aktifkan ZRAM di Linux Mint / Ubuntu / Debian *(Disarankan untuk RAM 8 GB Mode Lokal)*
 ```bash
 sudo apt update && sudo apt install -y zram-tools
 printf "ALGO=zstd\nPERCENT=50\nPRIORITY=100\n" | sudo tee /etc/default/zramswap
 printf "vm.swappiness=100\nvm.vfs_cache_pressure=50\n" | sudo tee /etc/sysctl.d/99-mint-ai.conf
 sudo systemctl restart zramswap && sudo sysctl --system
 ```
-*(Di **Fedora**, ZRAM umumnya sudah aktif bawaan lewat `systemd-zram-generator`. Di **Arch Linux**, pasang `zram-generator`.)*
+*(Di Fedora ZRAM umumnya aktif otomatis lewat `systemd-zram-generator`; di Arch Linux pasang `zram-generator`.)*
 
-### Troubleshooting Lengkap Lintas OS
+### Panduan Mengatasi Masalah Umum
 
-#### Umum (Semua OS)
-- **Teks Bahasa Indonesia keluar kata acak / aneh:**
-  Pastikan *KV Cache* tidak memakai `q4_0` pada model kecil (2B–4B) serta `XTC Probability` disetel `0.0` dan `Temperature` di rentang `0.70–0.85` pada **Chapter Mixing Console**. Studio sudah menyetel `f16` otomatis untuk model $\le 2.6\text{ GB}$ dan `q8_0` untuk model `7B+`.
-- **Generasi terasa lambat di CPU 2-Core:**
-  Gunakan `Qwen2.5-3B-Instruct-Q4_K_M.gguf` atau `Qwen3-1.7B-Q4_K_M.gguf`, tutup tab browser berat lain, dan kurangi target kata per beat ke `300–400` kata.
-- **Model Qwen3 mengeluarkan tag `<think>...</think>`:**
-  Studio otomatis menambahkan flag `--reasoning off` (atau `--reasoning-budget 0`) pada `llama-server` ketika memuat model bernama `*qwen3*`.
-- **Error `401 Unauthorized` saat mengunduh model kustom HuggingFace:**
-  Model yang Anda pilih adalah repositori *gated* (memerlukan persetujuan lisensi & token HF). Gunakan rilisan publik dari repositori komunitas seperti **`bartowski/*-GGUF`** atau **`unsloth/*-GGUF`**.
-- **Cek log mesin AI & FastAPI secara langsung:**
-  - Log `llama-server`: `.logs/llama-server.log`
-  - Log `FastAPI` (saat dijalankan lewat `start_studio.sh`): `.logs/fastapi.log`
-- **Error saat memakai API AI Online (`HTTP 401` / `404` / `429`):**
-  - `401 Unauthorized` / `403`: API Key salah, kadaluarsa, atau belum aktif untuk model tersebut.
-  - `404` / `model_not_found`: pastikan ID model sesuai dengan daftar milik provider (klik tombol **`🔍 Ambil Daftar Model`** di tab **`🌐 API Online`**).
-  - `429 Too Many Requests`: kuota/rate limit tier gratis provider tercapai sementara — tunggu sebentar atau beralih ke model lain/mode lokal.
-  - Menyambung ke **Ollama di PC lain dalam Wi-Fi LAN**: jalankan `OLLAMA_HOST=0.0.0.0 ollama serve` pada PC GPU Anda, lalu isi `Base URL` di Studio dengan `http://<IP-PC-GPU>:11434/v1`.
-
-#### Khusus Windows 10 / 11
-- **`llama-server.exe` gagal start / error hilang `llama.dll` atau `ggml.dll`:**
-  Pastikan seluruh file `.dll` hasil ekstrak `.zip` berada di folder `bin\` yang sama dengan `llama-server.exe`. Jika Anda memakai versi NVIDIA CUDA, wajib mengekstrak juga `cudart-llama-bin-win-cuda-12.4-x64.zip` ke folder `bin\`.
-- **`Activate.ps1 cannot be loaded because running scripts is disabled`:**
-  Tidak perlu menjalankan `Activate.ps1`! Gunakan perintah lengkap `.\backend\.venv\Scripts\python.exe -m ...` sebagaimana dicontohkan di Bagian 2B.
-- **HP tidak bisa membuka `http://<IP-WINDOWS>:8000`:**
-  Periksa apakah profil jaringan Wi-Fi Windows Anda bertipe *Public* (ubah ke *Private* di *Settings* $\rightarrow$ *Network & internet* $\rightarrow$ *Wi-Fi* $\rightarrow$ *Private network*), dan pastikan aturan Windows Defender Firewall (`New-NetFirewallRule`) sudah dijalankan sebagai Administrator.
-
-#### Khusus macOS (Apple Silicon / Intel)
-- **Popup `"llama-server" cannot be opened because the developer cannot be verified`:**
-  Jalankan `xattr -dr com.apple.quarantine bin/` dari direktori `novelpro`.
-- **`dyld: Library not loaded` saat menjalankan `llama-server` manual:**
-  Pastikan semua file `.dylib` (dan `.metallib`) hasil ekstrak berada di folder `bin/` bersama `llama-server`, lalu jalankan lewat tombol **Switch & Muat** di Web UI atau ekspor `DYLD_LIBRARY_PATH="$(pwd)/bin:$DYLD_LIBRARY_PATH"`.
-
-#### Khusus Android Termux
-- **`pip install` gagal mengompilasi `lxml` atau `pydantic-core`:**
-  Jangan instal dari source! Gunakan paket native Termux `pkg install -y python-lxml python-pydantic`, lalu buat venv memakai flag `--system-site-packages` (lihat Bagian 2D).
-- **Server mati tiba-tiba saat layar HP mati / pindah ke browser:**
-  Jalankan `termux-wake-lock` sebelum menyalakan `uvicorn`, dan matikan *Battery Optimization* untuk aplikasi Termux di *Settings* Android.
+- **Proses Write Beat terasa sangat lambat atau menunggu lama di CPU 2-Core:**
+  Di CPU hemat daya tanpa GPU (seperti Intel Celeron), pembacaan konteks awal membutuhkan ~40–90 detik pada Beat pertama sebelum kata pertama mengalir (penghitung detik tampil langsung di atas kotak editor). Untuk pengalaman yang jauh lebih cepat, pilih salah satu:
+  1. Beralih ke **API Online** (*Gemini / OpenRouter / Groq*) di tab **`🌐 API Online & Sumber Lain`**, **atau**
+  2. Unduh model super-ringan **`Qwen3-1.7B-Q4_K_M.gguf` (`1.03 GB`)** di tab **`📚 Katalog GGUF`**.
+- **Error saat memakai API AI Online (`401` / `404` / `429`):**
+  - `401 / 403`: API Key keliru, kadaluarsa, atau belum aktif untuk layanan terkait.
+  - `404 / model_not_found`: pastikan ID model sesuai dengan daftar milik provider (klik **`🔍 Ambil Daftar Model`** di tab **`🌐 API Online`**).
+  - `429 Too Many Requests`: batas kuota per menit tier gratis tercapai — tunggu sebentar atau pilih model lain.
+  - Menyambung ke **Ollama di PC lain dalam satu Wi-Fi**: jalankan `OLLAMA_HOST=0.0.0.0 ollama serve` pada PC GPU tersebut, lalu isi `Base URL` di Studio dengan `http://<IP-PC-GPU>:11434/v1`.
+- **Teks Bahasa Indonesia di mode lokal tampak aneh / rusak:**
+  Pastikan *KV Cache* tidak memakai `q4_0` pada model kecil (Studio sudah otomatis memakai `f16` untuk $\le 2.6\text{ GB}$ dan `q8_0` untuk `7B+`), serta setel `XTC Probability` = `0.0` dan `Temperature` = `0.70–0.85` di panel kanan.
+- **Error `401` saat mengunduh model `.gguf` kustom dari HuggingFace:**
+  Repositori model tersebut bersifat *gated* (memerlukan persetujuan lisensi). Gunakan rilisan publik komunitas seperti `bartowski/*-GGUF` atau `unsloth/*-GGUF`.
+- **Masalah khusus Windows (`llama.dll` tidak ditemukan / Firewall / PowerShell):**
+  Pastikan semua file `.dll` hasil ekstrak `.zip` berada tepat di dalam folder `bin\` bersama `llama-server.exe` (untuk CUDA wajib ekstrak juga `cudart-llama-bin-win-cuda-12.4-x64.zip`). Ubah profil jaringan Wi-Fi ke **Private** dan buka port `8000` dengan `New-NetFirewallRule`.
+- **Masalah khusus macOS (`cannot be opened` / `dyld library`):**
+  Jalankan `xattr -dr com.apple.quarantine bin/` dan pastikan semua file `.dylib` / `.metallib` berada di folder `bin/`.
+- **Masalah khusus Android Termux (`lxml`/`pydantic` gagal compile atau server berhenti):**
+  Wajib instal `python-lxml` dan `python-pydantic` lewat `pkg` lalu buat venv dengan `--system-site-packages`, serta aktifkan `termux-wake-lock`.
+- **Membaca Log Runtime:**
+  Log mesin AI lokal tersedia di `.logs/llama-server.log` dan log server web di `.logs/fastapi.log`.
