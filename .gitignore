@@ -1,0 +1,31 @@
+# Virtual environment & cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/.venv/
+.venv/
+
+# Model AI GGUF & unduhan parsial (ukuran gigabyte)
+models/*.gguf
+models/*.part
+models/*.download.json
+
+# Binary & library C++ llama.cpp eksternal
+bin/
+
+# Database lokal, log, PID runtime, & konfigurasi keamanan Cloudflare/AI Key
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/.env.security
+backend/.ai_provider_config.json
+deploy/
+.logs/
+.run/
+
+# OS & Editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+.vscode/

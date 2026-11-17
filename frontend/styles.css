@@ -1,0 +1,214 @@
+/* ==========================================================================
+   THE ZEN LITERARY STUDIO - CUSTOM EDITORIAL STYLESHEET
+   Palet: Warm Parchment (#FBF9F5) & Obsidian Ink (#121316)
+   Tipografi Naskah: Literata / Newsreader Serif (18px, line-height 1.85, 65ch)
+   ========================================================================== */
+
+:root {
+    --bg-primary: #FBF9F5;
+    --bg-secondary: #F3EFE6;
+    --bg-elevated: #FFFFFF;
+    --bg-muted: #EAE4D7;
+    --text-primary: #1C1917;
+    --text-secondary: #57534E;
+    --text-muted: #78716C;
+    --border-subtle: #E2D9C8;
+    --accent-primary: #D97706;
+    --accent-hover: #B45309;
+    --accent-soft: rgba(217, 119, 6, 0.12);
+    --danger-color: #DC2626;
+    --success-color: #15803D;
+    --manuscript-font: 'Literata', 'Newsreader', 'Georgia', Cambria, serif;
+    --ui-font: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono-font: 'JetBrains Mono', monospace;
+}
+
+html.dark {
+    --bg-primary: #121316;
+    --bg-secondary: #181B1F;
+    --bg-elevated: #1E2228;
+    --bg-muted: #262B33;
+    --text-primary: #E5E7EB;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
+    --border-subtle: #2A2F37;
+    --accent-primary: #F59E0B;
+    --accent-hover: #D97706;
+    --accent-soft: rgba(245, 158, 11, 0.14);
+    --danger-color: #EF4444;
+    --success-color: #22C55E;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--ui-font);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    overflow-x: hidden;
+}
+
+/* Custom Scrollbar Halus */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Tipografi Buku Cetak untuk Kanvas Naskah */
+.manuscript-prose {
+    font-family: var(--manuscript-font);
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.85;
+    max-width: 65ch;
+    color: var(--text-primary);
+    letter-spacing: 0.005em;
+}
+
+.manuscript-prose.reader-size-sm {
+    font-size: 1rem;
+    line-height: 1.76;
+    max-width: 62ch;
+}
+
+.manuscript-prose.reader-size-md {
+    font-size: 1.125rem;
+    line-height: 1.85;
+    max-width: 65ch;
+}
+
+.manuscript-prose.reader-size-lg {
+    font-size: 1.25rem;
+    line-height: 1.92;
+    max-width: 68ch;
+}
+
+.manuscript-prose:focus {
+    outline: none;
+}
+
+/* Styling Range Slider Kustom untuk 5 Narrative Mix Sliders */
+input[type="range"].studio-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--bg-muted);
+    border-radius: 999px;
+    outline: none;
+    cursor: pointer;
+}
+
+input[type="range"].studio-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    border: 2px solid var(--bg-elevated);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+input[type="range"].studio-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    background: var(--accent-hover);
+}
+
+input[type="range"].studio-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    border: 2px solid var(--bg-elevated);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.12s ease;
+}
+
+/* Indikator Kursor Berkedip saat SSE Streaming Berjalan */
+@keyframes pulse-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}
+
+.streaming-cursor::after {
+    content: "▋";
+    display: inline-block;
+    margin-left: 3px;
+    color: var(--accent-primary);
+    animation: pulse-cursor 0.85s infinite;
+}
+
+/* Surface Helpers */
+.studio-bg-primary { background-color: var(--bg-primary); }
+.studio-bg-secondary { background-color: var(--bg-secondary); }
+.studio-bg-elevated { background-color: var(--bg-elevated); }
+.studio-bg-muted { background-color: var(--bg-muted); }
+.studio-bg-transparent { background-color: transparent; }
+.studio-border { border-color: var(--border-subtle); }
+.studio-text-primary { color: var(--text-primary); }
+.studio-text-secondary { color: var(--text-secondary); }
+.studio-text-muted { color: var(--text-muted); }
+.studio-accent-bg { background-color: var(--accent-primary); }
+.studio-accent-bg:hover { background-color: var(--accent-hover); }
+.studio-accent-text { color: var(--accent-primary); }
+.studio-accent-soft { background-color: var(--accent-soft); }
+.studio-bg-primary\/60 { background-color: rgba(251, 249, 245, 0.6); }
+html.dark .studio-bg-primary\/60 { background-color: rgba(18, 19, 22, 0.6); }
+
+/* Mobile & Tablet Responsive Overlay Drawers (HP / Tablet via Wi-Fi LAN) */
+@media (max-width: 1023px) {
+    .studio-drawer-left {
+        position: fixed;
+        top: 3.4rem;
+        left: 0;
+        bottom: 0;
+        height: calc(100vh - 3.4rem) !important;
+        width: min(88vw, 22rem) !important;
+        z-index: 40;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    }
+    .studio-drawer-right {
+        position: fixed;
+        top: 3.4rem;
+        right: 0;
+        bottom: 0;
+        height: calc(100vh - 3.4rem) !important;
+        width: min(88vw, 22rem) !important;
+        z-index: 40;
+        box-shadow: -20px 20px 40px rgba(0, 0, 0, 0.35);
+    }
+}
+
+/* Utilitas Tambahan Offline untuk Kontrol Editor & Modal Ekspor */
+.gap-0\.5 { gap: 0.125rem; }
+.mb-1\.5 { margin-bottom: 0.375rem; }
+.min-w-\[140px\] { min-width: 140px; }
+.max-w-\[68ch\] { max-width: 68ch; }
+.font-normal { font-weight: 400; }
+.hover\:underline:hover { text-decoration-line: underline; }
+.disabled\:opacity-30:disabled { opacity: 0.3; }
+.bg-emerald-500\/15 { background-color: rgba(16, 185, 129, 0.15); }
+.border-red-500 { border-color: #EF4444; }
+@media (min-width: 768px) {
+    .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+    .lg\:inline-block { display: inline-block; }
+}

@@ -1,0 +1,22 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=The Zen Literary Studio (AI Novel Studio)
+GenericName=AI Long-Form Novel Writing Studio
+Comment=Buka Studio Penulisan Novel AI Lokal (Linux Mint 8GB RAM Edition)
+Exec=/home/khisan/Desktop/novelpro/start_studio.sh
+Path=/home/khisan/Desktop/novelpro
+Icon=applications-publishing
+Terminal=true
+Categories=Office;WordProcessor;Literature;Publishing;
+Keywords=Novel;Writing;AI;Fiction;Llama;Studio;
+StartupNotify=true
+Actions=StopStudio;OpenBrowserOnly;
+
+[Desktop Action StopStudio]
+Name=Matikan Mesin AI & Bebaskan RAM (stop_studio.sh)
+Exec=/home/khisan/Desktop/novelpro/stop_studio.sh
+
+[Desktop Action OpenBrowserOnly]
+Name=Buka Studio di Browser (http://localhost:8000)
+Exec=xdg-open http://localhost:8000
