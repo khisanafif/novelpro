@@ -253,10 +253,11 @@ function novelStudioApp() {
             preset_id: "openrouter",
             display_name: "OpenRouter (Banyak Model & Gratis Tier)",
             base_url: "https://openrouter.ai/api/v1",
-            model_name: "deepseek/deepseek-chat-v3-0324:free",
+            model_name: "",
             api_key: "",
             stop_local_llama: true,
         },
+        showAdvancedProviderOptions: false,
         remoteFetchedModels: [],
         isFetchingRemoteModels: false,
         isTestingProvider: false,
@@ -1777,6 +1778,9 @@ function novelStudioApp() {
         async openModelManager() {
             this.showModelModal = true;
             await Promise.all([this.loadModelsStatus(), this.loadAiProviderConfig()]);
+            if (this.aiProviderSummary?.provider_type && this.aiProviderSummary.provider_type !== "local_llama") {
+                this.modelModalTab = "online";
+            }
             if (!this.modelPollTimer) {
                 this.modelPollTimer = setInterval(() => {
                     if (this.showModelModal && !document.hidden) {
@@ -1966,7 +1970,7 @@ function novelStudioApp() {
                     this.aiProviderForm.preset_id = data.preset_id || "custom_openai";
                     this.aiProviderForm.display_name = data.display_name || "";
                     this.aiProviderForm.base_url = data.base_url || "";
-                    this.aiProviderForm.model_name = data.model_name || "";
+                    this.aiProviderForm.model_name = this.showAdvancedProviderOptions ? (data.model_name || "") : "";
                     this.aiProviderForm.api_key = "";
                 }
             } catch (_) {
@@ -1980,9 +1984,30 @@ function novelStudioApp() {
             this.aiProviderForm.provider_type = preset.provider_type;
             this.aiProviderForm.display_name = preset.label;
             this.aiProviderForm.base_url = preset.base_url;
-            this.aiProviderForm.model_name = preset.default_model || "";
+            // Kosongkan agar backend memilih & menguji model aktif terbaik otomatis dari API
+            this.aiProviderForm.model_name = "";
             this.remoteFetchedModels = [];
             this.providerTestResult = null;
+        },
+
+        _validateProviderInputs() {
+            const normalizedUrl = (this.aiProviderForm.base_url || "").trim().replace(/\/+$/, "");
+            if (!normalizedUrl) {
+                return "Base URL API wajib terisi (buka Pengaturan Lanjutan jika memakai URL kustom).";
+            }
+            const meta = this.selectedPresetMeta;
+            const needsKey = meta ? Boolean(meta.requires_api_key) : false;
+            const hasTypedKey = Boolean((this.aiProviderForm.api_key || "").trim());
+            const savedBase = (this.aiProviderSummary?.base_url || "").trim().replace(/\/+$/, "");
+            const hasSavedSameKey = Boolean(
+                this.aiProviderSummary?.has_api_key &&
+                this.aiProviderSummary?.preset_id === this.aiProviderForm.preset_id &&
+                savedBase === normalizedUrl
+            );
+            if (needsKey && !hasTypedKey && !hasSavedSameKey) {
+                return `Masukkan API Key untuk ${this.aiProviderForm.display_name || this.aiProviderForm.preset_id} terlebih dahulu.`;
+            }
+            return null;
         },
 
         async fetchRemoteModelsList() {
@@ -2013,6 +2038,12 @@ function novelStudioApp() {
         },
 
         async testAiProviderConnection() {
+            const validationError = this._validateProviderInputs();
+            if (validationError) {
+                this.providerTestResult = { ok: false, message: validationError };
+                this.notify(validationError, "warning");
+                return;
+            }
             this.isTestingProvider = true;
             this.providerTestResult = null;
             try {
@@ -2022,12 +2053,13 @@ function novelStudioApp() {
                         provider_type: this.aiProviderForm.provider_type,
                         preset_id: this.aiProviderForm.preset_id,
                         display_name: this.aiProviderForm.display_name,
-                        base_url: this.aiProviderForm.base_url,
-                        model_name: this.aiProviderForm.model_name,
+                        base_url: this.aiProviderForm.base_url.trim(),
+                        model_name: (this.aiProviderForm.model_name || "").trim(),
                         api_key: this.aiProviderForm.api_key || null,
                     }),
                 });
-                this.providerTestResult = { ok: true, message: res.detail || `Sukses (${res.latency_ms} ms)` };
+                const modelLabel = res.model_name ? `Model aktif: ${res.model_name} • ` : "";
+                this.providerTestResult = { ok: true, message: res.detail || `${modelLabel}Sukses (${res.latency_ms} ms)` };
                 this.notify(`Uji koneksi berhasil (${res.latency_ms} ms)!`, "success");
             } catch (err) {
                 this.providerTestResult = { ok: false, message: err.message };
@@ -2038,39 +2070,56 @@ function novelStudioApp() {
         },
 
         async saveAndActivateAiProvider(clearApiKey = false) {
-            if (!this.aiProviderForm.base_url.trim() || !this.aiProviderForm.model_name.trim()) {
-                this.notify("Base URL dan Nama Model wajib diisi.", "warning");
+            if (clearApiKey) {
+                await this.switchBackToLocalAi(true);
+                return;
+            }
+            const validationError = this._validateProviderInputs();
+            if (validationError) {
+                this.providerTestResult = { ok: false, message: validationError };
+                this.notify(validationError, "warning");
                 return;
             }
             this.isSavingProvider = true;
+            this.providerTestResult = null;
             try {
                 const res = await this.apiRequest("/api/ai/provider", {
                     method: "POST",
                     body: JSON.stringify({
                         provider_type: this.aiProviderForm.provider_type,
                         preset_id: this.aiProviderForm.preset_id,
-                        display_name: this.aiProviderForm.display_name || this.aiProviderForm.model_name,
+                        display_name: this.aiProviderForm.display_name || this.aiProviderForm.preset_id,
                         base_url: this.aiProviderForm.base_url.trim(),
-                        model_name: this.aiProviderForm.model_name.trim(),
-                        api_key: clearApiKey ? null : (this.aiProviderForm.api_key || null),
-                        clear_api_key: clearApiKey,
+                        model_name: (this.aiProviderForm.model_name || "").trim(),
+                        api_key: this.aiProviderForm.api_key || null,
+                        clear_api_key: false,
+                        verify_connection: true,
                         stop_local_llama: Boolean(this.aiProviderForm.stop_local_llama),
                     }),
                 });
                 this.aiProviderForm.api_key = "";
+                if (res.test) {
+                    this.providerTestResult = {
+                        ok: Boolean(res.test.ok),
+                        message: res.test.detail || `Aktif: ${res.configured_model} (${res.test.latency_ms || 0} ms)`,
+                    };
+                } else {
+                    this.providerTestResult = { ok: true, message: `Aktif: ${res.configured_model}` };
+                }
                 await Promise.all([this.fetchSystemHealth(), this.loadModelsStatus(), this.loadAiProviderConfig()]);
                 this.notify(
-                    `Sumber AI beralih ke 🌐 ${res.configured_model}! Seluruh proses menulis & Beat Plan kini memakai API ini.`,
+                    `🚀 Sumber AI aktif & terverifikasi: 🌐 ${res.configured_model}! Siap langsung menulis.`,
                     "success"
                 );
             } catch (err) {
-                this.notify(`Gagal menyimpan konfigurasi API AI: ${err.message}`, "error");
+                this.providerTestResult = { ok: false, message: err.message };
+                this.notify(`Gagal menjalankan API AI: ${err.message}`, "error");
             } finally {
                 this.isSavingProvider = false;
             }
         },
 
-        async switchBackToLocalAi() {
+        async switchBackToLocalAi(clearApiKey = false) {
             this.isSavingProvider = true;
             try {
                 await this.apiRequest("/api/ai/provider", {
@@ -2078,11 +2127,19 @@ function novelStudioApp() {
                     body: JSON.stringify({
                         provider_type: "local_llama",
                         preset_id: "local_llama",
+                        clear_api_key: Boolean(clearApiKey),
                         stop_local_llama: false,
                     }),
                 });
+                this.aiProviderForm.api_key = "";
+                this.providerTestResult = null;
                 await Promise.all([this.fetchSystemHealth(), this.loadModelsStatus(), this.loadAiProviderConfig()]);
-                this.notify("Beralih kembali ke mode Mesin Lokal (llama-server GGUF).", "info");
+                this.notify(
+                    clearApiKey
+                        ? "API Key dihapus & Studio kembali ke Mode Lokal (llama-server GGUF)."
+                        : "Beralih kembali ke mode Mesin Lokal (llama-server GGUF).",
+                    "info"
+                );
             } catch (err) {
                 this.notify(`Gagal kembali ke mode lokal: ${err.message}`, "error");
             } finally {

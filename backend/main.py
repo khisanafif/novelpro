@@ -73,6 +73,7 @@ from ai_provider import (
     fetch_remote_models,
     get_public_provider_summary,
     load_provider_config,
+    resolve_and_activate_provider,
     save_provider_config,
     test_provider_connection,
 )
@@ -470,10 +471,11 @@ class AIProviderConfigRequest(BaseModel):
     preset_id: str = "custom_openai"
     display_name: Optional[str] = None
     base_url: Optional[str] = None
-    model_name: Optional[str] = None
+    model_name: Optional[str] = ""
     api_key: Optional[str] = None
     clear_api_key: bool = False
     timeout_seconds: int = Field(default=180, ge=15, le=600)
+    verify_connection: bool = True
     stop_local_llama: bool = True
 
 
@@ -652,10 +654,14 @@ def api_get_ai_provider() -> Dict[str, Any]:
 
 @app.post("/api/ai/provider")
 async def api_set_ai_provider(req: AIProviderConfigRequest) -> Dict[str, Any]:
-    """Mengaktifkan mode Lokal GGUF atau API Online/Eksternal (OpenAI, Gemini, Groq, OpenRouter, Claude, Ollama, dll.)."""
+    """
+    Mengaktifkan mode Lokal GGUF atau API Online/Eksternal.
+    Cukup pilih sumber & masukkan API Key — backend otomatis mendeteksi model aktif terbaik
+    dan menguji koneksi sebelum mematikan engine lokal.
+    """
     async with inference_queue.acquire_slot(f"switch-ai-provider:{req.provider_type}"):
         try:
-            saved = save_provider_config(
+            saved, probe_result = await resolve_and_activate_provider(
                 {
                     "provider_type": req.provider_type,
                     "preset_id": req.preset_id,
@@ -666,9 +672,10 @@ async def api_set_ai_provider(req: AIProviderConfigRequest) -> Dict[str, Any]:
                     "clear_api_key": req.clear_api_key,
                     "timeout_seconds": req.timeout_seconds,
                 },
+                verify_connection=req.verify_connection,
                 local_llama_url=LLAMA_SERVER_BASE_URL,
             )
-        except ValueError as e:
+        except Exception as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         stop_info = None
@@ -678,6 +685,7 @@ async def api_set_ai_provider(req: AIProviderConfigRequest) -> Dict[str, Any]:
         return {
             "saved": True,
             "provider": get_public_provider_summary(LLAMA_SERVER_BASE_URL),
+            "test": probe_result,
             "stopped_local_llama": stop_info,
             "configured_model": saved.get("model_name"),
         }
