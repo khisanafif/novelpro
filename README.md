@@ -1,8 +1,11 @@
 # The Zen Literary Studio — AI Novel Writing Studio
 
-Aplikasi web penulisan novel panjang (*long-form fiction*) yang dirancang agar **ringan, konsisten menjaga alur cerita antar-bab, bebas klise moralistik AI, dan fleksibel**: bisa berjalan **100% offline di perangkat sendiri** (`llama-server`) maupun tersambung ke **API AI Online / server eksternal** (*Google Gemini, OpenRouter, Groq, OpenAI, DeepSeek, Mistral, Anthropic Claude, Ollama, atau LM Studio*).
+Aplikasi web penulisan novel panjang (*long-form fiction*) yang dirancang agar **ringan, konsisten menjaga alur cerita antar-bab, bebas klise moralistik AI, dan fleksibel**: bisa dibuka **langsung di browser via GitHub Pages tanpa instalasi**, dijalankan **100% offline di perangkat sendiri** (`llama-server`), maupun tersambung ke **API AI Online / server eksternal** (*Google Gemini, OpenRouter, Groq, OpenAI, DeepSeek, Mistral, Anthropic Claude, Ollama, atau LM Studio*).
 
-Tersedia untuk **Linux (Mint / Ubuntu / Debian / Arch / Fedora)**, **Windows 10/11**, **macOS (Apple Silicon & Intel)**, serta **Android (Termux)** dan dapat diakses nyaman dari laptop maupun HP lewat satu jaringan Wi-Fi.
+> 🌐 **Langsung Pakai Online (GitHub Pages — Tanpa Install):** **[https://khisanafif.github.io/novelpro/](https://khisanafif.github.io/novelpro/)**
+> *(Setelah halaman GitHub Pages diaktifkan dari Settings repo, siapa pun dapat langsung menulis novel di browser HP/laptop menggunakan API Key sendiri, dengan penyimpanan browser otomatis & ekspor `.EPUB` / `.MD` / Backup `.JSON`.)*
+
+Tersedia juga versi instalasi lokal untuk **Linux (Mint / Ubuntu / Debian / Arch / Fedora)**, **Windows 10/11**, **macOS (Apple Silicon & Intel)**, serta **Android (Termux)** dengan dukungan `llama-server` offline.
 
 ---
 
@@ -39,10 +42,11 @@ Saat menulis novel panjang dengan AI chat biasa, penulis hampir selalu menghadap
 
 ### Dua Cara Menggunakan AI (Pilih yang Paling Cocok)
 
-| Jalur AI | Cara Kerja | Cocok Untuk Siapa? | Perlu Download `llama-server` & `.gguf`? |
+| Jalur AI | Cara Kerja | Cocok Untuk Siapa? | Perlu Install / Download `.gguf`? |
 | :--- | :--- | :--- | :---: |
-| **🌐 Mode API Online / Server Lain** | Studio terhubung ke Google Gemini, OpenRouter (ada model gratis `:free`), Groq, OpenAI, DeepSeek, Claude, atau Ollama/LM Studio di PC lain. | Laptop RAM kecil / CPU 2-Core yang ingin respons **kilat dalam hitungan detik** dan akses model kelas atas. | **Tidak perlu** *(langsung jalan setelah pasang Python)* |
-| **🖥️ Mode Lokal Offline (`.GGUF`)** | AI berjalan langsung di komputer/HP Anda memakai `llama-server` (`llama.cpp`). | Penulis yang mengutamakan **privasi 100% offline**, bebas biaya kuota API selamanya, atau punya GPU/Apple Silicon. | **Ya** *(tersedia panduan lengkap di Tutorial 1 & 2B)* |
+| **🌍 Versi Web GitHub Pages (Browser Murni)** | Buka langsung di browser, tempel API Key (*OpenRouter, Google Gemini, Groq, OpenAI, Mistral, Claude*), naskah disimpan di `localStorage` browser & bisa diekspor `.EPUB` / `.MD` / `.JSON`. | Siapa saja yang ingin **langsung mencoba atau menulis dari HP/laptop/Chromebook tanpa terminal**. | **Tidak perlu sama sekali** |
+| **🌐 Studio Lokal + API Online / Server Lain** | FastAPI lokal terhubung ke Google Gemini, OpenRouter, Groq, ChatGPT, DeepSeek, Claude, atau Ollama/LM Studio LAN + database SQLite FTS5. | Penulis yang ingin database SQLite lokal permanen sekaligus kecepatan cloud. | **Tidak perlu `.gguf`** *(cukup Python)* |
+| **🖥️ Mode Lokal Offline (`.GGUF`)** | AI berjalan penuh di komputer/HP Anda memakai `llama-server` (`llama.cpp`). | Penulis yang mengutamakan **privasi 100% offline**, bebas kuota API, atau punya GPU/Apple Silicon. | **Ya** *(panduan lengkap di Tutorial 1 & 2B)* |
 
 > Anda bisa berpindah antara Mode Online dan Mode Offline **kapan saja dari Web UI** tanpa kehilangan naskah.
 
@@ -100,9 +104,15 @@ novelpro/
 │   └── novel_studio.db        # Database naskah & Story Bible (otomatis dibuat saat start)
 ├── frontend/
 │   ├── vendor/                # Aset offline (alpine.min.js + studio-utilities.css)
+│   ├── web_runtime.js         # Runtime serverless murni browser (localStorage, CORS AI, EPUB ZIP)
 │   ├── index.html             # Antarmuka The Zen Literary Studio
 │   ├── styles.css             # Tipografi buku cetak & tata letak responsif Desktop/HP
-│   └── app.js                 # Logika UI, Auto-Save, SSE Streaming, Cari & Ganti, Target Harian
+│   └── app.js                 # Logika UI, deteksi mode FastAPI vs Browser, SSE, Cari & Ganti
+├── docs/                      # Output build statis siap host di GitHub Pages (+ .nojekyll)
+├── scripts/
+│   └── sync_github_pages.py   # Menyinkronkan frontend/ -> docs/ secara identik
+├── .github/workflows/
+│   └── pages.yml              # GitHub Actions otomatis deploy GitHub Pages saat push ke main
 ├── bin/                       # Tempat binary llama-server (.so/.dylib/.dll) untuk mode offline
 ├── models/                    # Tempat file model .gguf untuk mode offline
 ├── Caddyfile                  # Reverse proxy statis opsional (port 3000)
@@ -119,8 +129,33 @@ novelpro/
 ## 4. Tutorial 1 — Instalasi & Menjalankan Studio di Semua OS
 
 > **Tips Memilih Langkah untuk Pemula:**
-> - Jika Anda ingin memakai **API Online** (*Gemini, OpenRouter, Groq, ChatGPT, DeepSeek, Claude*): cukup selesaikan langkah **Install Python/Environment** dan **Menyalakan Studio**, lalu langsung lanjut ke **[Bagian 5A](#5a-cara-pakai-api-model-ai-online--server-eksternal)** — lewati bagian pemasangan `llama-server` dan download `.gguf`.
-> - Jika Anda ingin **100% Offline Lokal**: ikuti semua sub-langkah termasuk menyalin `llama-server` ke `bin/` dan model `.gguf` ke `models/`.
+> - **Tanpa Instalasi (Paling Praktis):** Gunakan **Versi Web GitHub Pages** di bawah — cukup buka browser dan masukkan API Key.
+> - **Jika ingin database SQLite di komputer + API Online:** selesaikan langkah **Install Python/Environment** dan **Menyalakan Studio**, lalu lanjut ke **[Bagian 5A](#5a-cara-pakai-api-model-ai-online--server-eksternal)**.
+> - **Jika ingin 100% Offline Lokal:** ikuti semua sub-langkah termasuk menyalin `llama-server` ke `bin/` dan model `.gguf` ke `models/`.
+
+---
+
+### Versi Instan — Langsung Pakai di GitHub Pages (Tanpa Install)
+
+Pengguna dapat langsung membuka Studio dari HP, tablet, atau laptop tanpa Python maupun server apa pun:
+
+1. **Buka alamat Web Studio:** `https://khisanafif.github.io/novelpro/`
+2. Klik badge AI di pojok kanan atas (**`🌐 Pilih AI & API Key`**).
+3. **Pilih Sumber AI** yang mendukung akses langsung dari browser (*OpenRouter*, *Google Gemini*, *Groq*, *OpenAI*, *Mistral*, atau *Anthropic Claude*).
+4. **Tempel API Key** *(tersimpan aman hanya di browser perangkat tersebut, tidak dikirim ke server perantara mana pun)* lalu klik **`🚀 Aktifkan & Langsung Jalankan API`**.
+5. **Penyimpanan & Pindah Perangkat:** Seluruh novel, Codex, Phase, dan riwayat revisi tersimpan otomatis di `localStorage` browser dan dapat diekspor menjadi **`.EPUB`**, **`.MD`**, **HTML Siap Cetak/PDF**, maupun **Backup `.JSON`** (format `.JSON` 100% kompatibel dengan Studio versi Python/Desktop!).
+
+<details>
+<summary>Untuk Pemilik Repo: Cara Mengaktifkan GitHub Pages di Repositori Anda</summary>
+
+1. Pastikan folder `docs/` dan workflow `.github/workflows/pages.yml` sudah di-push ke branch `main`. *(Setiap kali mengedit `frontend/`, jalankan `python3 scripts/sync_github_pages.py` sebelum commit).*
+2. Buka repositori GitHub Anda $\rightarrow$ **Settings** $\rightarrow$ **Pages**.
+3. Di bagian **Build and deployment**, pilih salah satu:
+   - **GitHub Actions** *(otomatis ter-deploy setiap `git push` ke `main` via `.github/workflows/pages.yml`)*, **ATAU**
+   - **Deploy from a branch** $\rightarrow$ Branch **`main`**, folder **`/docs`** $\rightarrow$ **Save**.
+4. Tunggu ±1 menit, lalu akses **`https://<username>.github.io/<repo>/`**.
+
+</details>
 
 ---
 

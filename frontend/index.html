@@ -13,13 +13,14 @@
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet" media="print" onload="this.media='all'" />
 
-    <!-- Static Zero-Overhead Utility CSS + Custom Editorial Stylesheet (100% Offline-Ready) -->
-    <link rel="stylesheet" href="/vendor/studio-utilities.css" />
-    <link rel="stylesheet" href="/styles.css" />
+    <!-- Static Zero-Overhead Utility CSS + Custom Editorial Stylesheet (100% Offline & GitHub Pages Compatible) -->
+    <link rel="stylesheet" href="vendor/studio-utilities.css" />
+    <link rel="stylesheet" href="styles.css" />
 
-    <!-- Local Alpine.js Core & Controller (Zero CDN Blocking) -->
-    <script src="/app.js"></script>
-    <script defer src="/vendor/alpine.min.js"></script>
+    <!-- Pure-Browser Serverless Runtime + Local Alpine.js Controller -->
+    <script src="web_runtime.js"></script>
+    <script src="app.js"></script>
+    <script defer src="vendor/alpine.min.js"></script>
 </head>
 
 <body x-data="novelStudioApp()" x-init="init()" class="min-h-screen flex flex-col select-none">
@@ -60,8 +61,8 @@
             <div class="flex items-center gap-2">
                 <span class="text-base font-bold tracking-tight studio-accent-text">✒️ Zen Literary Studio</span>
                 <span
-                    class="hidden md:inline-block text-[11px] font-mono px-2 py-0.5 rounded studio-accent-soft studio-accent-text font-semibold">
-                    Lintas-OS Edition
+                    class="hidden md:inline-block text-[11px] font-mono px-2 py-0.5 rounded studio-accent-soft studio-accent-text font-semibold"
+                    x-text="runtimeMode === 'browser' ? 'Web Browser Edition' : 'Lintas-OS Edition'">
                 </span>
             </div>
 
@@ -92,8 +93,9 @@
                     class="studio-text-secondary max-w-[190px] truncate"></span>
             </button>
 
-            <!-- Monitor RAM Perangkat Real-time (Linux / Windows / macOS / Android) -->
-            <div class="flex items-center gap-2 px-2.5 py-1 rounded-md studio-bg-elevated border studio-border text-xs font-mono"
+            <!-- Monitor RAM Perangkat Real-time (Mode FastAPI) / Info Browser Storage (GitHub Pages) -->
+            <div x-show="runtimeMode !== 'browser'"
+                class="flex items-center gap-2 px-2.5 py-1 rounded-md studio-bg-elevated border studio-border text-xs font-mono"
                 title="Konsumsi RAM Aktual Perangkat">
                 <span class="font-semibold">RAM:</span>
                 <span
@@ -104,6 +106,12 @@
                         :class="systemHealth.ram.usage_percent > 85 ? 'bg-red-500' : 'studio-accent-bg'"
                         :style="`width: ${Math.min(100, systemHealth.ram.usage_percent)}%`"></div>
                 </div>
+            </div>
+            <div x-show="runtimeMode === 'browser'"
+                title="Naskah, Codex, & API Key tersimpan aman di browser ini. Gunakan Backup JSON untuk pindah perangkat."
+                class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md studio-bg-elevated border studio-border text-xs font-mono studio-text-secondary">
+                <span>💾</span>
+                <span>Browser Save</span>
             </div>
 
             <!-- Tombol Export Naskah Novel Penuh (EPUB, Cetak/PDF, Markdown) -->
@@ -1572,14 +1580,16 @@
                     <p class="text-[11px] studio-text-muted mt-0.5 font-mono"
                         x-text="aiProviderSummary.provider_type !== 'local_llama'
                             ? `Aktif: 🌐 ${aiProviderSummary.display_name} (${aiProviderSummary.model_name})`
-                            : `Aktif: 🖥️ Lokal GGUF | Folder: ${modelRuntime.models_dir} | CPU: ${modelRuntime.total_cpu_cores} Core`">
+                            : (runtimeMode === 'browser'
+                                ? 'Mode GitHub Pages / Browser (Penyimpanan Naskah di Browser) — Pilih Sumber AI &amp; API Key'
+                                : `Aktif: 🖥️ Lokal GGUF | Folder: ${modelRuntime.models_dir} | CPU: ${modelRuntime.total_cpu_cores} Core`)">
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
                     <button x-show="aiProviderSummary.provider_type !== 'local_llama'" @click="switchBackToLocalAi()"
                         :disabled="isSavingProvider"
-                        class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold">
-                        ↩️ Kembali ke Mode Lokal
+                        class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold"
+                        x-text="runtimeMode === 'browser' ? '⏏️ Nonaktifkan API' : '↩️ Kembali ke Mode Lokal'">
                     </button>
                     <button @click="loadModelsStatus(); loadAiProviderConfig();"
                         class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold">
@@ -1597,22 +1607,22 @@
             <!-- Navigasi Tab Pengelola Model -->
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-1.5">
-                    <button @click="modelModalTab = 'local'"
-                        class="px-3 py-1.5 rounded-md font-semibold border transition"
-                        :class="modelModalTab === 'local' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
-                        💾 Model Lokal (<span x-text="modelRuntime.local_models.length"></span>)
-                    </button>
                     <button @click="modelModalTab = 'online'"
                         class="px-3 py-1.5 rounded-md font-semibold border transition"
                         :class="modelModalTab === 'online' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
                         🌐 API Online (Pakai Key Saja)
                     </button>
-                    <button @click="modelModalTab = 'catalog'"
+                    <button x-show="runtimeMode !== 'browser'" @click="modelModalTab = 'local'"
+                        class="px-3 py-1.5 rounded-md font-semibold border transition"
+                        :class="modelModalTab === 'local' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
+                        💾 Model Lokal (<span x-text="modelRuntime.local_models.length"></span>)
+                    </button>
+                    <button x-show="runtimeMode !== 'browser'" @click="modelModalTab = 'catalog'"
                         class="px-3 py-1.5 rounded-md font-semibold border transition"
                         :class="modelModalTab === 'catalog' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
                         📚 Katalog GGUF (<span x-text="modelRuntime.curated_catalog.length"></span>)
                     </button>
-                    <button @click="modelModalTab = 'custom'"
+                    <button x-show="runtimeMode !== 'browser'" @click="modelModalTab = 'custom'"
                         class="px-3 py-1.5 rounded-md font-semibold border transition"
                         :class="modelModalTab === 'custom' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
                         ➕ Unduh GGUF Kustom
@@ -2051,12 +2061,30 @@
                                     </template>
                                 </div>
 
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label x-show="runtimeMode !== 'browser'" class="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" x-model="aiProviderForm.stop_local_llama" class="rounded" />
                                     <span class="text-[11px] studio-text-secondary">
                                         Matikan <code class="font-mono">llama-server</code> lokal otomatis setelah API terverifikasi untuk membebaskan RAM
                                     </span>
                                 </label>
+
+                                <!-- Opsi Hubungkan ke Backend FastAPI Pribadi (misal Tunnel dari PC/Termux) -->
+                                <div class="pt-2 border-t studio-border space-y-1.5">
+                                    <label class="block font-semibold">🔗 Hubungkan Server Studio Pribadi (Opsional — untuk Mode Lokal / Tunnel)</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <input type="text" x-model="customBackendUrl"
+                                            placeholder="Kosongkan untuk Pure Browser Mode, atau masukkan URL (misal https://novel.domain.com)"
+                                            class="flex-1 px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]" />
+                                        <button type="button" @click="connectCustomBackend()"
+                                            class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold text-[11px]">
+                                            🔌 Hubungkan Server
+                                        </button>
+                                        <button type="button" x-show="customBackendUrl" @click="resetToBrowserMode()"
+                                            class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border text-[11px]">
+                                            ↩️ Reset Browser Mode
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

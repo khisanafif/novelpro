@@ -1,0 +1,2230 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Zen Literary Studio — AI Novel Writing Studio (Linux Mint 8GB Edition)</title>
+
+    <!-- Google Fonts Non-Blocking (Degrades gracefully ke font sistem saat offline) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet" media="print" onload="this.media='all'" />
+
+    <!-- Static Zero-Overhead Utility CSS + Custom Editorial Stylesheet (100% Offline & GitHub Pages Compatible) -->
+    <link rel="stylesheet" href="vendor/studio-utilities.css" />
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Pure-Browser Serverless Runtime + Local Alpine.js Controller -->
+    <script src="web_runtime.js"></script>
+    <script src="app.js"></script>
+    <script defer src="vendor/alpine.min.js"></script>
+</head>
+
+<body x-data="novelStudioApp()" x-init="init()" class="min-h-screen flex flex-col select-none">
+
+    <!-- ==================================================================
+         TOAST NOTIFICATION FLOATING BANNER
+         ================================================================== -->
+    <div x-show="toast.visible" x-cloak x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-2"
+        class="fixed bottom-5 right-5 z-50 max-w-md px-4 py-3 rounded-lg shadow-xl border flex items-center gap-3 text-sm font-medium"
+        :class="{
+             'bg-emerald-950/95 text-emerald-100 border-emerald-700': toast.type === 'success',
+             'bg-amber-950/95 text-amber-100 border-amber-700': toast.type === 'warning',
+             'bg-red-950/95 text-red-100 border-red-700': toast.type === 'error',
+             'bg-stone-900/95 text-stone-100 border-stone-700': toast.type === 'info'
+         }">
+        <span x-text="toast.type === 'success' ? '✓' : (toast.type === 'error' ? '✕' : '✦')"
+            class="font-bold text-base"></span>
+        <span x-text="toast.message" class="leading-snug"></span>
+        <button @click="toast.visible = false" class="ml-auto opacity-70 hover:opacity-100 text-xs">✕</button>
+    </div>
+
+    <!-- ==================================================================
+         TOP STUDIO HEADER BAR (PROJECT SWITCHER, LINUX MINT RAM, ZEN MODE)
+         ================================================================== -->
+    <header
+        class="studio-bg-secondary border-b studio-border px-3 lg:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 z-30">
+        <!-- Kiri: Toggle Left Drawer + Identitas Studio + Pemilih Novel -->
+        <div class="flex items-center gap-2.5">
+            <button @click="leftDrawerOpen = !leftDrawerOpen" title="Buka/Tutup Panel Story Bible & Codex"
+                class="p-2 rounded-md studio-bg-elevated border studio-border hover:opacity-85 transition text-xs font-semibold flex items-center gap-1.5">
+                <span>📚</span>
+                <span class="hidden sm:inline" x-text="leftDrawerOpen ? 'Tutup Bible' : 'Story Bible'"></span>
+            </button>
+
+            <div class="flex items-center gap-2">
+                <span class="text-base font-bold tracking-tight studio-accent-text">✒️ Zen Literary Studio</span>
+                <span
+                    class="hidden md:inline-block text-[11px] font-mono px-2 py-0.5 rounded studio-accent-soft studio-accent-text font-semibold"
+                    x-text="runtimeMode === 'browser' ? 'Web Browser Edition' : 'Lintas-OS Edition'">
+                </span>
+            </div>
+
+            <!-- Dropdown Pemilih Novel -->
+            <div class="flex items-center gap-1.5 ml-1">
+                <select x-model="activeProjectId" @change="selectProject($event.target.value)"
+                    class="text-xs sm:text-sm font-semibold px-2.5 py-1.5 rounded-md studio-bg-elevated border studio-border studio-text-primary focus:outline-none">
+                    <template x-for="proj in projects" :key="proj.id">
+                        <option :value="proj.id" x-text="proj.title"></option>
+                    </template>
+                </select>
+                <button @click="showNewProjectModal = true" title="Buat Novel Baru"
+                    class="px-2.5 py-1.5 rounded-md text-xs font-semibold studio-accent-bg text-white transition">
+                    + Novel
+                </button>
+            </div>
+        </div>
+
+        <!-- Kanan: Status llama-server, Monitor RAM Linux Mint Real-time, Zen Mode, Theme Switcher -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Status Sumber AI (Lokal GGUF / API Online) & Klik untuk Atur -->
+            <button @click="openModelManager()" title="Klik untuk Ganti Model Lokal (.GGUF) atau Hubungkan API Online (Gemini, OpenRouter, Groq, OpenAI, Ollama, Claude)"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded-md studio-bg-elevated border studio-border hover:border-amber-500 transition text-xs font-mono cursor-pointer">
+                <span class="w-2 h-2 rounded-full"
+                    :class="aiHeaderOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'"></span>
+                <span
+                    x-text="aiHeaderBadgeText"
+                    class="studio-text-secondary max-w-[190px] truncate"></span>
+            </button>
+
+            <!-- Monitor RAM Perangkat Real-time (Mode FastAPI) / Info Browser Storage (GitHub Pages) -->
+            <div x-show="runtimeMode !== 'browser'"
+                class="flex items-center gap-2 px-2.5 py-1 rounded-md studio-bg-elevated border studio-border text-xs font-mono"
+                title="Konsumsi RAM Aktual Perangkat">
+                <span class="font-semibold">RAM:</span>
+                <span
+                    :class="systemHealth.ram.usage_percent > 85 ? 'text-red-500 font-bold' : 'studio-accent-text font-semibold'"
+                    x-text="`${(systemHealth.ram.used_mb / 1024).toFixed(1)} / ${(systemHealth.ram.total_mb / 1024).toFixed(1)} GB`"></span>
+                <div class="w-14 h-2 rounded-full studio-bg-muted overflow-hidden hidden md:block">
+                    <div class="h-full transition-all duration-300"
+                        :class="systemHealth.ram.usage_percent > 85 ? 'bg-red-500' : 'studio-accent-bg'"
+                        :style="`width: ${Math.min(100, systemHealth.ram.usage_percent)}%`"></div>
+                </div>
+            </div>
+            <div x-show="runtimeMode === 'browser'"
+                title="Naskah, Codex, & API Key tersimpan aman di browser ini. Gunakan Backup JSON untuk pindah perangkat."
+                class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md studio-bg-elevated border studio-border text-xs font-mono studio-text-secondary">
+                <span>💾</span>
+                <span>Browser Save</span>
+            </div>
+
+            <!-- Tombol Export Naskah Novel Penuh (EPUB, Cetak/PDF, Markdown) -->
+            <div class="flex items-center gap-1">
+                <button @click="openExportModal('epub')"
+                    title="Buka Studio Ekspor Naskah (EPUB, PDF/Cetak, Markdown)"
+                    class="px-2.5 py-1.5 rounded-md text-xs font-semibold studio-bg-elevated border studio-border hover:border-amber-500 transition flex items-center gap-1">
+                    <span>📤</span>
+                    <span class="hidden sm:inline">Ekspor</span>
+                </button>
+                <button @click="exportFullNovel('markdown')" title="Kompilasi Cepat Markdown (.md)"
+                    class="hidden lg:inline-block px-2 py-1.5 rounded-md text-xs font-semibold studio-bg-elevated border studio-border hover:border-amber-500 transition">
+                    📄 .MD
+                </button>
+            </div>
+
+            <!-- Tombol Zen Mode (Alt+Z) -->
+            <button @click="toggleZenMode()"
+                class="px-2.5 py-1.5 rounded-md text-xs font-semibold border studio-border transition flex items-center gap-1"
+                :class="zenMode ? 'studio-accent-bg text-white' : 'studio-bg-elevated studio-text-primary'">
+                <span>🧘</span>
+                <span class="hidden sm:inline" x-text="zenMode ? 'Keluar Zen' : 'Zen Mode'"></span>
+            </button>
+
+            <!-- Toggle Tema: Warm Parchment (#FBF9F5) vs Obsidian Ink (#121316) -->
+            <button @click="toggleTheme()" title="Ganti Tema Warm Parchment / Obsidian Ink"
+                class="px-2.5 py-1.5 rounded-md text-xs font-semibold studio-bg-elevated border studio-border hover:opacity-85 transition">
+                <span x-text="darkMode ? '☀️ Parchment' : '🌙 Obsidian'"></span>
+            </button>
+
+            <!-- Toggle Right Drawer (Mixing Console) -->
+            <button @click="rightDrawerOpen = !rightDrawerOpen" title="Buka/Tutup Chapter Mixing Console"
+                class="p-2 rounded-md studio-bg-elevated border studio-border hover:opacity-85 transition text-xs font-semibold flex items-center gap-1.5">
+                <span>🎛️</span>
+                <span class="hidden sm:inline" x-text="rightDrawerOpen ? 'Tutup Mixer' : 'Mixing Console'"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ==================================================================
+         1. INTERACTIVE PHASE-RANGE TIMELINE BAR (ATAS)
+         Mengatur rentang Bab X-Y, Tension Min-Max, dan Strict Phase Guardrails
+         ================================================================== -->
+    <section x-show="!zenMode" x-transition class="studio-bg-secondary border-b studio-border px-3 lg:px-5 py-2.5 z-20">
+        <div class="flex flex-col gap-2">
+            <!-- Baris Peta Rentang Fase -->
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-bold uppercase tracking-wider studio-text-secondary">
+                        🗺️ Peta Fase & Rentang Bab:
+                    </span>
+                    <span class="text-xs studio-text-muted hidden sm:inline">
+                        Klik kartu fase untuk melihat/mengubah batas bab &amp; aturan pengunci plot
+                    </span>
+                </div>
+                <button @click="openNewPhaseModal()"
+                    class="text-xs font-semibold px-2.5 py-1 rounded studio-bg-elevated border studio-border hover:border-amber-500 transition">
+                    + Tambah Fase
+                </button>
+            </div>
+
+            <!-- Horizontal Scrollable Phase Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                <template x-for="phase in phases" :key="phase.id">
+                    <div @click="selectPhaseOnTimeline(phase)"
+                        class="cursor-pointer rounded-lg p-2.5 border transition relative flex flex-col justify-between"
+                        :class="isPhaseActiveForCurrentChapter(phase)
+                             ? 'studio-bg-elevated border-amber-500 ring-2 ring-amber-500/30 shadow-sm'
+                             : (selectedPhase && selectedPhase.id === phase.id
+                                 ? 'studio-bg-elevated border-amber-500/60'
+                                 : 'studio-bg-primary studio-border opacity-80 hover:opacity-100')">
+                        <div class="flex items-center justify-between gap-1 mb-1">
+                            <span
+                                class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded studio-accent-soft studio-accent-text"
+                                x-text="`Bab ${phase.start_chapter}–${phase.end_chapter}`"></span>
+                            <div class="flex items-center gap-1">
+                                <span class="text-[10px] font-mono studio-text-muted"
+                                    x-text="`${phase.tension_min}-${phase.tension_max}%`"></span>
+                                <button @click.stop="openEditPhaseModal(phase)" title="Edit Rentang Fase & Guardrails"
+                                    class="text-xs opacity-60 hover:opacity-100 px-1">⚙️</button>
+                            </div>
+                        </div>
+                        <div class="text-xs font-bold truncate studio-text-primary" x-text="phase.phase_name"></div>
+                        <div class="mt-1.5 flex items-center justify-between text-[10px] studio-text-secondary">
+                            <span class="font-mono uppercase" x-text="phase.default_pacing"></span>
+                            <span x-show="isPhaseActiveForCurrentChapter(phase)"
+                                class="text-amber-600 dark:text-amber-400 font-bold">● AKTIF</span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Indikator Strict Phase Guardrails & Building Focus untuk Fase Terpilih -->
+            <template x-if="selectedPhase">
+                <div
+                    class="rounded-md px-3 py-2 studio-bg-elevated border studio-border flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-bold studio-accent-text" x-text="selectedPhase.phase_name"></span>
+                        <span class="font-mono text-[11px] px-2 py-0.5 rounded studio-bg-muted">
+                            Rentang Bab <strong
+                                x-text="`${selectedPhase.start_chapter} s.d. ${selectedPhase.end_chapter}`"></strong>
+                        </span>
+                        <span class="font-mono text-[11px] px-2 py-0.5 rounded studio-bg-muted">
+                            Tension: <strong
+                                x-text="`${selectedPhase.tension_min}% – ${selectedPhase.tension_max}%`"></strong>
+                        </span>
+                        <span class="studio-text-secondary">
+                            <strong>Fokus:</strong> <span x-text="selectedPhase.building_focus"></span>
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2 border-t md:border-t-0 pt-1.5 md:pt-0 studio-border">
+                        <span
+                            class="px-2 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 font-semibold text-[11px] shrink-0">
+                            🛡️ Strict Guardrails:
+                        </span>
+                        <span class="studio-text-primary italic" x-text="selectedPhase.phase_guardrails"></span>
+                        <button @click="openEditPhaseModal(selectedPhase)"
+                            class="ml-auto text-[11px] underline studio-accent-text shrink-0">
+                            Ubah Aturan
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </section>
+
+    <!-- ==================================================================
+         MAIN 3-COLUMN WORKSPACE (LEFT DRAWER, CENTER STAGE, RIGHT DRAWER)
+         ================================================================== -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- ==============================================================
+             2. LEFT DRAWER (STORY BIBLE, CODEX MANAGER, & DAFTAR BAB)
+             ============================================================== -->
+        <aside x-show="leftDrawerOpen && !zenMode" x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="-translate-x-full opacity-0" x-transition:enter-end="translate-x-0 opacity-100"
+            class="studio-drawer-left w-80 xl:w-96 shrink-0 studio-bg-secondary border-r studio-border flex flex-col h-[calc(100vh-8.5rem)] overflow-hidden z-20">
+
+            <!-- Navigasi Sub-Tab Left Drawer -->
+            <div class="grid grid-cols-3 border-b studio-border text-xs font-bold">
+                <button @click="leftTab = 'chapters'" class="py-2.5 text-center border-b-2 transition"
+                    :class="leftTab === 'chapters' ? 'border-amber-600 studio-accent-text studio-bg-elevated' : 'border-transparent studio-text-secondary'">
+                    📑 Daftar Bab
+                </button>
+                <button @click="leftTab = 'bible'" class="py-2.5 text-center border-b-2 transition"
+                    :class="leftTab === 'bible' ? 'border-amber-600 studio-accent-text studio-bg-elevated' : 'border-transparent studio-text-secondary'">
+                    🧭 Core Compass
+                </button>
+                <button @click="leftTab = 'codex'" class="py-2.5 text-center border-b-2 transition"
+                    :class="leftTab === 'codex' ? 'border-amber-600 studio-accent-text studio-bg-elevated' : 'border-transparent studio-text-secondary'">
+                    📚 Codex (<span x-text="codexItems.length"></span>)
+                </button>
+            </div>
+
+            <!-- TAB 2A: DAFTAR BAB -->
+            <div x-show="leftTab === 'chapters'" class="flex-1 overflow-y-auto p-3 space-y-2.5">
+                <!-- Ringkasan Progres Novel & Target Kata Harian Penulis -->
+                <div class="p-2.5 rounded-lg studio-bg-elevated border studio-border space-y-2 text-[11px]">
+                    <div class="flex items-center justify-between font-mono">
+                        <span class="studio-text-secondary">📚 Total Naskah</span>
+                        <span class="font-bold studio-accent-text"
+                            x-text="`${totalProjectWordCount.toLocaleString('id-ID')} / ${totalProjectPlannedWords.toLocaleString('id-ID')} kata`"></span>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between font-mono">
+                            <span class="studio-text-secondary">🎯 Hari Ini</span>
+                            <button @click="updateDailyGoalPrompt()" title="Klik untuk ubah target kata harian"
+                                class="hover:underline font-bold"
+                                :class="dailyGoalProgressPercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'studio-text-primary'">
+                                <span x-text="`${todayWordsWritten.toLocaleString('id-ID')} / ${dailyGoalWords.toLocaleString('id-ID')}`"></span>
+                                <span class="studio-text-muted font-normal">✏️</span>
+                            </button>
+                        </div>
+                        <div class="w-full h-1.5 rounded-full studio-bg-muted overflow-hidden">
+                            <div class="h-full transition-all duration-300"
+                                :class="dailyGoalProgressPercent >= 100 ? 'bg-emerald-500' : 'studio-accent-bg'"
+                                :style="`width: ${dailyGoalProgressPercent}%`"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider studio-text-secondary">
+                        Struktur Bab Novel
+                    </span>
+                    <button @click="openNewChapterModal()"
+                        class="px-2.5 py-1 rounded text-xs font-semibold studio-accent-bg text-white transition">
+                        + Bab Baru
+                    </button>
+                </div>
+
+                <div class="space-y-2">
+                    <template x-for="ch in chapters" :key="ch.id">
+                        <div @click="selectChapter(ch.id)" class="p-3 rounded-lg border cursor-pointer transition"
+                            :class="activeChapterId === ch.id
+                                 ? 'studio-bg-elevated border-amber-500 shadow-sm'
+                                 : 'studio-bg-primary studio-border hover:opacity-90'">
+                            <div class="flex items-center justify-between text-xs mb-1">
+                                <span class="font-mono font-bold studio-accent-text"
+                                    x-text="`BAB ${ch.chapter_number}`"></span>
+                                <span class="text-[11px] font-mono px-1.5 py-0.5 rounded studio-bg-muted"
+                                    x-text="ch.pacing_mode"></span>
+                            </div>
+                            <div class="font-bold text-sm studio-text-primary" x-text="ch.title"></div>
+                            <p class="text-xs studio-text-secondary line-clamp-2 mt-1" x-text="ch.chapter_goal"></p>
+                            <div class="mt-2 flex items-center justify-between text-[11px] font-mono studio-text-muted">
+                                <span x-text="ch.phase_name || 'Fase Umum'"></span>
+                                <span x-text="`${ch.current_word_count || 0} / ${ch.target_word_count} kata`"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- TAB 2B: CORE COMPASS (STORY BIBLE & NEGATIVE CONSTRAINTS) -->
+            <div x-show="leftTab === 'bible'" x-cloak class="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
+                <div class="flex flex-wrap items-center justify-between gap-1">
+                    <span class="font-bold uppercase tracking-wider studio-text-secondary">
+                        🧭 Core Compass (Tier-1)
+                    </span>
+                    <div class="flex items-center gap-1">
+                        <input type="file" accept=".json,application/json" x-ref="backupRestoreInput"
+                            @change="restoreProjectFromBackupFile($event)" class="hidden" />
+                        <button @click="$refs.backupRestoreInput.click()" :disabled="isRestoringBackup"
+                            title="Pulihkan Proyek Novel dari Cadangan (.json)"
+                            class="px-2 py-1 rounded studio-bg-elevated border studio-border hover:border-amber-500 font-semibold disabled:opacity-50">
+                            📥 Restore
+                        </button>
+                        <button @click="downloadProjectBackup()" title="Unduh Cadangan Lengkap Proyek (JSON)"
+                            class="px-2 py-1 rounded studio-bg-elevated border studio-border hover:border-amber-500 font-semibold">
+                            📦 Backup
+                        </button>
+                        <button @click="saveStoryBible()"
+                            class="px-2.5 py-1 rounded font-semibold studio-accent-bg text-white">
+                            💾 Simpan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold mb-1">Judul Novel</label>
+                        <input type="text" x-model="activeProject.title"
+                            class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border" />
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Nama Penulis / Pena</label>
+                        <input type="text" x-model="activeProject.author_name" placeholder="Nama Penulis..."
+                            class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold mb-1">Genre</label>
+                        <input type="text" x-model="activeProject.genre"
+                            class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border" />
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block font-semibold">Profil Model GGUF</label>
+                            <button @click="switchActiveModel(activeProject.active_model_profile)"
+                                :disabled="isSwitchingModel" title="Muat langsung profil model ini ke llama-server RAM"
+                                class="text-[10px] font-semibold px-1.5 py-0.5 rounded studio-accent-soft studio-accent-text hover:opacity-80 disabled:opacity-50">
+                                ⚡ Switch RAM
+                            </button>
+                        </div>
+                        <select x-model="activeProject.active_model_profile"
+                            class="w-full px-2 py-1.5 rounded studio-bg-elevated border studio-border">
+                            <template x-for="opt in availableProfileOptions" :key="opt.value">
+                                <option :value="opt.value" x-text="opt.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold mb-1">Premis / Logline</label>
+                    <textarea rows="2" x-model="activeProject.logline"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border"></textarea>
+                </div>
+
+                <div>
+                    <label class="block font-semibold mb-1">Main Objective (North Star Novel)</label>
+                    <textarea rows="2" x-model="activeProject.main_objective"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold mb-1">Sudut Pandang (POV)</label>
+                        <select x-model="activeProject.pov_style"
+                            class="w-full px-2 py-1.5 rounded studio-bg-elevated border studio-border">
+                            <option value="Third-Person Limited">Orang Ketiga Terbatas (Dia/Nama)</option>
+                            <option value="First-Person Deep POV">Orang Pertama (Aku/Saya)</option>
+                            <option value="Omniscient Narrator">Orang Ketiga Serbatahu</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Tone &amp; Atmosfer</label>
+                        <input type="text" x-model="activeProject.tone_style"
+                            class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold mb-1">Contoh Gaya Bahasa Acuan (Style Sample)</label>
+                    <textarea rows="3" x-model="activeProject.style_sample"
+                        placeholder="Tempelkan 2-3 kalimat contoh ritme prosa yang ingin ditiru AI..."
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border font-serif"></textarea>
+                </div>
+
+                <div>
+                    <label class="block font-semibold mb-1 text-red-600 dark:text-red-400">
+                        🚫 Negative Constraints / Banned Phrases (Dipisahkan Koma)
+                    </label>
+                    <textarea rows="2" x-model="bannedPhrasesText"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border font-mono text-[11px]"></textarea>
+                    <p class="text-[11px] studio-text-muted mt-0.5">
+                        Diblokir di System Prompt &amp; otomatis dipotong oleh Anti-Summary Tail Filter.
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block font-semibold mb-1">
+                        🔄 Rolling Global Summary (Tier-2 Memory)
+                    </label>
+                    <textarea rows="4" x-model="activeProject.rolling_global_summary"
+                        placeholder="Ringkasan perjalanan cerita lintas bab (diperbarui otomatis saat Extract State)..."
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border"></textarea>
+                </div>
+
+                <button @click="saveStoryBible()"
+                    class="w-full py-2 rounded-md font-bold studio-accent-bg text-white shadow-sm">
+                    💾 Simpan Seluruh Pengaturan Story Bible
+                </button>
+
+                <div class="pt-3 border-t studio-border">
+                    <button @click="deleteActiveProject()"
+                        class="w-full py-1.5 rounded-md font-semibold bg-red-600/10 text-red-500 hover:bg-red-600/20 transition">
+                        🗑️ Hapus Proyek Novel Ini
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 2C: CODEX & LOREBOOK MANAGER (FTS5 BM25 + CHARACTER STATE) -->
+            <div x-show="leftTab === 'codex'" x-cloak class="flex-1 overflow-y-auto p-3 space-y-3 text-xs">
+                <!-- Tombol Tambah Entitas Cepat -->
+                <div class="flex flex-wrap items-center justify-between gap-1.5">
+                    <button @click="openNewCodexModal('CHARACTER')"
+                        class="px-2.5 py-1.5 rounded font-semibold studio-accent-bg text-white">
+                        + Karakter
+                    </button>
+                    <button @click="openNewCodexModal('LOCATION')"
+                        class="px-2.5 py-1.5 rounded font-semibold studio-bg-elevated border studio-border">
+                        + Lokasi
+                    </button>
+                    <button @click="openNewCodexModal('WORLD_RULE')"
+                        class="px-2.5 py-1.5 rounded font-semibold studio-bg-elevated border studio-border">
+                        + World Rule
+                    </button>
+                </div>
+
+                <!-- Kotak Pencarian Otomatis SQLite FTS5 BM25 -->
+                <div class="p-2.5 rounded-lg studio-bg-elevated border studio-border space-y-2">
+                    <label class="block font-bold text-[11px] uppercase studio-accent-text">
+                        ⚡ Uji Pencarian Memori FTS5 BM25 (&lt;1ms)
+                    </label>
+                    <div class="flex gap-1.5">
+                        <input type="text" x-model="bm25SearchQuery" @keyup.enter="runBm25Search()"
+                            placeholder="Ketik kata kunci adegan / objek..."
+                            class="flex-1 px-2.5 py-1 rounded studio-bg-primary border studio-border" />
+                        <button @click="runBm25Search()"
+                            class="px-2.5 py-1 rounded font-semibold studio-accent-bg text-white">
+                            Cari
+                        </button>
+                    </div>
+                    <template
+                        x-if="bm25SearchResults.codex_matches.length > 0 || bm25SearchResults.episodic_memories.length > 0">
+                        <div class="pt-1.5 border-t studio-border space-y-1.5">
+                            <div class="text-[11px] font-semibold studio-text-secondary">
+                                Hasil Ranking BM25 (<span x-text="bm25SearchResults.codex_matches.length"></span> Codex,
+                                <span x-text="bm25SearchResults.episodic_memories.length"></span> Memori Episodik):
+                            </div>
+                            <template x-for="hit in bm25SearchResults.codex_matches" :key="hit.id">
+                                <div @click="openEditCodexModal(hit)"
+                                    class="p-1.5 rounded studio-bg-primary border studio-border cursor-pointer hover:border-amber-500">
+                                    <span class="font-bold studio-accent-text" x-text="hit.name"></span>
+                                    <span class="text-[10px] font-mono ml-1 opacity-75"
+                                        x-text="`[${hit.category}]`"></span>
+                                    <p class="text-[11px] studio-text-secondary truncate" x-text="hit.core_description">
+                                    </p>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Filter Kategori Codex -->
+                <div class="flex gap-1 overflow-x-auto pb-1">
+                    <template x-for="cat in ['ALL', 'CHARACTER', 'LOCATION', 'WORLD_RULE', 'ITEM']" :key="cat">
+                        <button @click="codexFilterCategory = cat"
+                            class="px-2 py-1 rounded text-[11px] font-mono font-semibold border transition"
+                            :class="codexFilterCategory === cat ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-elevated studio-border'">
+                            <span x-text="cat"></span>
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Daftar Kartu Codex beserta Current State & Knowledge State -->
+                <div class="space-y-2">
+                    <template x-for="item in filteredCodexItems" :key="item.id">
+                        <div @click="openEditCodexModal(item)"
+                            class="p-3 rounded-lg studio-bg-elevated border studio-border cursor-pointer hover:border-amber-500 transition space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded studio-accent-soft studio-accent-text"
+                                        x-text="item.category"></span>
+                                    <span class="font-bold text-sm studio-text-primary" x-text="item.name"></span>
+                                </div>
+                                <span x-show="item.is_pinned" title="Dikunci di Slot 0 Static Prefix"
+                                    class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold">
+                                    📌 PINNED
+                                </span>
+                            </div>
+
+                            <p class="text-xs studio-text-secondary line-clamp-2" x-text="item.core_description"></p>
+
+                            <!-- Tampilan Current State & Knowledge State Khusus Karakter -->
+                            <template x-if="item.category === 'CHARACTER' && item.current_state">
+                                <div
+                                    class="pt-1.5 mt-1.5 border-t studio-border grid grid-cols-1 gap-1 text-[11px] font-mono studio-text-secondary">
+                                    <div>📍 <strong>Lokasi:</strong> <span
+                                            x-text="item.current_state.location || '-'"></span></div>
+                                    <div>❤️ <strong>Kondisi:</strong> <span
+                                            x-text="item.current_state.condition || 'Sehat'"></span></div>
+                                    <div>🧠 <strong>Knowledge:</strong> <span
+                                            x-text="item.current_state.knowledge || '-'"></span></div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ==============================================================
+             3. CENTER STAGE (MICRO-BEAT CANVAS & STREAMING EDITOR)
+             ============================================================== -->
+        <main class="flex-1 overflow-y-auto h-[calc(100vh-8.5rem)] px-3 sm:px-6 lg:px-10 py-6">
+            <template x-if="activeChapter">
+                <div class="max-w-4xl mx-auto space-y-6 pb-20">
+
+                    <!-- Header Bab & Word Budget Tracker -->
+                    <div class="rounded-xl p-5 studio-bg-elevated border studio-border shadow-sm space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="font-mono text-xs font-bold px-2.5 py-1 rounded studio-accent-soft studio-accent-text"
+                                    x-text="`BAB ${activeChapter.chapter_number}`"></span>
+                                <span class="text-xs font-mono px-2.5 py-1 rounded studio-bg-muted"
+                                    x-text="activeChapter.phase_name || 'Fase Struktur Aktif'"></span>
+                                <span class="text-xs font-mono px-2.5 py-1 rounded studio-bg-muted"
+                                    x-text="`Pacing: ${activeChapter.pacing_mode}`"></span>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button @click="readerMode = !readerMode"
+                                    title="Beralih antara Kartu Editor Beat & Mode Baca Buku Utuh (Alt+R)"
+                                    class="px-3 py-1.5 rounded-md text-xs font-semibold border transition"
+                                    :class="readerMode ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border hover:border-amber-500'">
+                                    <span x-text="readerMode ? '✍️ Mode Kartu Beat' : '📖 Mode Baca Utuh'"></span>
+                                </button>
+                                <button @click="showFindReplaceBar = !showFindReplaceBar"
+                                    title="Cari & Ganti teks konsisten di seluruh Beat bab ini (Alt+F)"
+                                    class="px-2.5 py-1.5 rounded-md text-xs font-semibold border transition"
+                                    :class="showFindReplaceBar ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border hover:border-amber-500'">
+                                    🔎 Cari &amp; Ganti
+                                </button>
+                                <button @click="copyChapterProse()"
+                                    title="Salin seluruh prosa bab ini ke clipboard"
+                                    class="px-2.5 py-1.5 rounded-md text-xs font-semibold studio-bg-secondary border studio-border hover:border-amber-500 transition">
+                                    📋 Salin Bab
+                                </button>
+                                <button @click="exportChapterManuscript()"
+                                    class="px-3 py-1.5 rounded-md text-xs font-semibold studio-bg-secondary border studio-border hover:opacity-85 transition">
+                                    📥 Bab (.md)
+                                </button>
+                                <button @click="generateBeatPlan(false)"
+                                    :disabled="isGeneratingBeats || streamingBeatId !== null"
+                                    class="px-3.5 py-1.5 rounded-md text-xs font-bold studio-accent-bg text-white shadow-sm disabled:opacity-50 transition flex items-center gap-1.5">
+                                    <span
+                                        x-text="isGeneratingBeats ? '⏳ Merancang Beats...' : '⚡ Generate Beat Plan'"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Input Judul Bab & Chapter Goal -->
+                        <div class="grid grid-cols-1 gap-3">
+                            <input type="text" x-model="activeChapter.title" @change="saveChapterConfig()"
+                                placeholder="Judul Bab..."
+                                class="text-xl sm:text-2xl font-bold font-serif studio-bg-transparent border-b studio-border pb-1.5 focus:outline-none focus:border-amber-600" />
+                            <div>
+                                <label
+                                    class="block text-[11px] font-bold uppercase tracking-wider studio-text-secondary mb-1">
+                                    🎯 Chapter Goal (Tujuan Naratif Bab Ini — Dipecah Otomatis Menjadi Micro-Beats)
+                                </label>
+                                <textarea rows="2" x-model="activeChapter.chapter_goal" @change="saveChapterConfig()"
+                                    class="w-full px-3 py-2 rounded-lg studio-bg-primary border studio-border text-sm leading-relaxed"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Word Budget Tracker Bar -->
+                        <div class="p-3 rounded-lg studio-bg-secondary border studio-border space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-between text-xs font-mono">
+                                <div>
+                                    <strong>📊 Word Budget Tracker:</strong>
+                                    <span class="studio-accent-text font-bold" x-text="actualChapterWordCount"></span>
+                                    dari target
+                                    <span class="font-bold" x-text="activeChapter.target_word_count"></span> kata
+                                    (<span x-text="`${wordBudgetProgressPercent}%`"></span>)
+                                </div>
+                                <div class="studio-text-secondary">
+                                    Sisa Anggaran:
+                                    <strong
+                                        x-text="`${Math.max(0, activeChapter.target_word_count - actualChapterWordCount)} kata`"></strong>
+                                    | Total: <strong x-text="`${beats.length} Micro-Beats`"></strong>
+                                </div>
+                            </div>
+                            <div class="w-full h-2.5 rounded-full studio-bg-muted overflow-hidden">
+                                <div class="h-full studio-accent-bg transition-all duration-300"
+                                    :style="`width: ${wordBudgetProgressPercent}%`"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Cari & Ganti Lintas Micro-Beats di Bab Ini (Alt+F) -->
+                    <div x-show="showFindReplaceBar" x-cloak
+                        class="rounded-xl p-3.5 studio-bg-elevated border studio-border shadow-sm flex flex-wrap items-center gap-2 text-xs">
+                        <input type="text" x-model="findQuery" placeholder="Cari kata / nama tokoh..."
+                            class="flex-1 min-w-[140px] px-2.5 py-1.5 rounded-md studio-bg-primary border studio-border focus:outline-none" />
+                        <input type="text" x-model="replaceQuery" placeholder="Ganti dengan..."
+                            class="flex-1 min-w-[140px] px-2.5 py-1.5 rounded-md studio-bg-primary border studio-border focus:outline-none" />
+                        <label class="flex items-center gap-1 cursor-pointer select-none px-1.5">
+                            <input type="checkbox" x-model="findCaseSensitive" class="rounded" />
+                            <span class="font-mono text-[11px]">Aa</span>
+                        </label>
+                        <span class="font-mono text-[11px] px-2 py-1 rounded studio-bg-secondary border studio-border"
+                            x-text="findQuery ? `${findMatchStats.totalMatches} hasil (${findMatchStats.affectedBeats} Beat)` : 'Ketik kata'"></span>
+                        <button @click="replaceAllInChapter()"
+                            :disabled="!findQuery || findMatchStats.totalMatches === 0 || streamingBeatId !== null"
+                            class="px-3 py-1.5 rounded-md font-bold studio-accent-bg text-white disabled:opacity-40 transition">
+                            Ganti Semua
+                        </button>
+                        <button @click="showFindReplaceBar = false"
+                            class="px-2 py-1.5 rounded-md studio-bg-secondary border studio-border hover:opacity-80">✕</button>
+                    </div>
+
+                    <!-- Mode Baca Buku Utuh (Book Reader Preview) -->
+                    <div x-show="readerMode" x-cloak
+                        class="rounded-xl studio-bg-elevated border studio-border shadow-sm px-6 sm:px-10 py-6 flex flex-col items-center space-y-5">
+                        <!-- Bar Kontrol Tipografi & Navigasi Mode Baca -->
+                        <div class="w-full max-w-[68ch] flex flex-wrap items-center justify-between gap-2 pb-3 border-b studio-border text-xs">
+                            <div class="flex items-center gap-1.5">
+                                <span class="studio-text-muted font-mono">Ukuran Teks:</span>
+                                <button @click="setReaderFontSize('sm')"
+                                    :class="readerFontSize === 'sm' ? 'studio-accent-bg text-white' : 'studio-bg-secondary'"
+                                    class="px-2 py-1 rounded border studio-border font-serif">A-</button>
+                                <button @click="setReaderFontSize('md')"
+                                    :class="readerFontSize === 'md' ? 'studio-accent-bg text-white' : 'studio-bg-secondary'"
+                                    class="px-2 py-1 rounded border studio-border font-serif">A</button>
+                                <button @click="setReaderFontSize('lg')"
+                                    :class="readerFontSize === 'lg' ? 'studio-accent-bg text-white' : 'studio-bg-secondary'"
+                                    class="px-2 py-1 rounded border studio-border font-serif font-bold">A+</button>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button @click="copyChapterProse()"
+                                    class="px-2.5 py-1 rounded studio-bg-secondary border studio-border hover:border-amber-500">
+                                    📋 Salin Prosa
+                                </button>
+                                <button @click="openExportModal('print_html')"
+                                    class="px-2.5 py-1 rounded studio-bg-secondary border studio-border hover:border-amber-500">
+                                    🖨️ Cetak / PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="w-full max-w-[68ch] space-y-5 flex flex-col items-center">
+                            <div class="w-full text-center border-b studio-border pb-4 space-y-1">
+                                <div class="text-xs font-mono uppercase tracking-wider studio-text-muted"
+                                    x-text="`Bab ${activeChapter.chapter_number} • ${actualChapterWordCount} Kata`">
+                                </div>
+                                <h2 class="text-2xl font-serif font-bold studio-text-primary"
+                                    x-text="activeChapter.title"></h2>
+                            </div>
+                            <template x-if="actualChapterWordCount === 0">
+                                <p class="text-center text-sm studio-text-muted py-6">
+                                    Belum ada prosa tertulis di bab ini. Beralih ke <strong>✍️ Mode Kartu Beat</strong>
+                                    untuk menulis beat pertama.
+                                </p>
+                            </template>
+                            <template x-for="(beat, bIdx) in beats" :key="'reader-' + beat.id">
+                                <div x-show="(beat.generated_prose || '').trim().length > 0" class="w-full flex flex-col items-center space-y-4">
+                                    <div x-show="bIdx > 0"
+                                        class="text-center font-serif studio-text-muted tracking-wider">* * *</div>
+                                    <div class="w-full whitespace-pre-line select-text"
+                                        :class="`manuscript-prose reader-size-${readerFontSize}`"
+                                        x-text="beat.generated_prose"></div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Navigasi Bab Sebelum / Sesudah -->
+                        <div class="w-full max-w-[68ch] pt-4 border-t studio-border flex items-center justify-between text-xs">
+                            <button @click="navigateChapter(-1)" :disabled="!hasPrevChapter"
+                                class="px-3 py-1.5 rounded-md studio-bg-secondary border studio-border disabled:opacity-40 hover:border-amber-500 transition">
+                                ← Bab Sebelumnya
+                            </button>
+                            <button @click="navigateChapter(1)" :disabled="!hasNextChapter"
+                                class="px-3 py-1.5 rounded-md studio-bg-secondary border studio-border disabled:opacity-40 hover:border-amber-500 transition">
+                                Bab Berikutnya →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Daftar Kartu Micro-Beats Berurutan -->
+                    <div x-show="!readerMode" class="space-y-6">
+                        <template x-for="(beat, bIdx) in beats" :key="beat.id">
+                            <article
+                                class="rounded-xl studio-bg-elevated border studio-border shadow-sm overflow-hidden transition"
+                                :class="streamingBeatId === beat.id ? 'ring-2 ring-amber-500 border-amber-500' : ''">
+
+                                <!-- Baris Header Kartu Micro-Beat -->
+                                <div
+                                    class="px-4 py-3 studio-bg-secondary border-b studio-border flex flex-wrap items-center justify-between gap-2">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span
+                                            class="font-mono text-xs font-bold px-2.5 py-1 rounded studio-accent-bg text-white"
+                                            x-text="`BEAT #${beat.beat_number}`"></span>
+
+                                        <!-- Pindah Urutan Beat -->
+                                        <div class="flex items-center gap-0.5">
+                                            <button @click="moveBeat(beat, 'up')" :disabled="bIdx === 0 || streamingBeatId !== null"
+                                                title="Geser Beat ke atas"
+                                                class="px-1.5 py-0.5 rounded text-[11px] studio-bg-elevated border studio-border disabled:opacity-30 hover:border-amber-500">▲</button>
+                                            <button @click="moveBeat(beat, 'down')" :disabled="bIdx === beats.length - 1 || streamingBeatId !== null"
+                                                title="Geser Beat ke bawah"
+                                                class="px-1.5 py-0.5 rounded text-[11px] studio-bg-elevated border studio-border disabled:opacity-30 hover:border-amber-500">▼</button>
+                                        </div>
+
+                                        <!-- Status Editorial Beat -->
+                                        <select :value="beat.status" @change="setBeatStatus(beat, $event.target.value)"
+                                            title="Status penyuntingan adegan (untuk filter ekspor naskah)"
+                                            class="text-[11px] font-semibold px-1.5 py-1 rounded studio-bg-elevated border studio-border">
+                                            <option value="PENDING">📝 Rencana</option>
+                                            <option value="COMPLETED">✍️ Draf Selesai</option>
+                                            <option value="REVISED">✅ Final / Sunting</option>
+                                        </select>
+
+                                        <!-- Indikator Ketegangan (Tension Level) -->
+                                        <div
+                                            class="flex items-center gap-1 px-2 py-0.5 rounded studio-bg-elevated border studio-border text-xs font-mono">
+                                            <span>🔥 Tension:</span>
+                                            <input type="number" min="5" max="100" x-model.number="beat.tension_level"
+                                                @change="saveBeatMetadata(beat)"
+                                                class="w-12 text-center font-bold studio-accent-text bg-transparent focus:outline-none" />
+                                            <span>/100</span>
+                                        </div>
+
+                                        <!-- Pemilih Karakter POV & Lokasi Adegan -->
+                                        <select x-model="beat.pov_character_id" @change="saveBeatMetadata(beat)"
+                                            class="text-xs px-2 py-1 rounded studio-bg-elevated border studio-border">
+                                            <option value="">👤 Pilih POV Karakter...</option>
+                                            <template x-for="chItem in characterCodexList" :key="chItem.id">
+                                                <option :value="chItem.id" x-text="`POV: ${chItem.name}`"></option>
+                                            </template>
+                                        </select>
+
+                                        <select x-model="beat.location_id" @change="saveBeatMetadata(beat)"
+                                            class="text-xs px-2 py-1 rounded studio-bg-elevated border studio-border">
+                                            <option value="">📍 Pilih Lokasi...</option>
+                                            <template x-for="locItem in locationCodexList" :key="locItem.id">
+                                                <option :value="locItem.id" x-text="`Lokasi: ${locItem.name}`"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    <!-- Kanan Header Beat: Penghitung Kata Aktual vs Target Beat + Tombol Aksi -->
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span x-show="beatSaveStatus[beat.id] === 'saving'"
+                                            class="text-[10px] font-mono text-amber-500">⏳ Menyimpan...</span>
+                                        <span x-show="beatSaveStatus[beat.id] === 'saved'"
+                                            class="text-[10px] font-mono text-emerald-500">✓ Tersimpan</span>
+
+                                        <span
+                                            class="text-xs font-mono px-2 py-1 rounded studio-bg-elevated border studio-border"
+                                            :class="beat.actual_words >= beat.target_words * 0.85 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'studio-text-secondary'"
+                                            x-text="`${beat.actual_words || 0} / ${beat.target_words} kata`"></span>
+
+                                        <button @click="inspectBeatMemoryContext(beat)"
+                                            title="Lihat prompt 4-Tier & pencarian FTS5 BM25 (<1ms) untuk Beat ini"
+                                            class="px-2 py-1 rounded text-xs font-mono studio-bg-elevated border studio-border hover:border-amber-500">
+                                            🔍 Memori
+                                        </button>
+
+                                        <button
+                                            @click="activeBeatEditId = (activeBeatEditId === beat.id ? null : beat.id)"
+                                            class="px-2.5 py-1 rounded text-xs font-semibold studio-bg-elevated border studio-border hover:opacity-85">
+                                            <span
+                                                x-text="activeBeatEditId === beat.id ? '▲ Tutup Direktif' : '⚙️ Direktif'"></span>
+                                        </button>
+
+                                        <button @click="deleteSingleBeat(beat)" :disabled="streamingBeatId === beat.id"
+                                            title="Hapus Micro-Beat ini"
+                                            class="px-2 py-1 rounded text-xs bg-red-600/10 text-red-500 hover:bg-red-600/20 disabled:opacity-40">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Panel Instruksi Beat & Titik Berhenti (Bisa Dibuka/Tutup) -->
+                                <div class="p-4 border-b studio-border studio-bg-primary/60 space-y-2.5 text-xs">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label
+                                                class="block font-bold uppercase text-[10px] tracking-wider studio-text-secondary mb-1">
+                                                🎬 Instruksi Kejadian Beat (Beat Instruction)
+                                            </label>
+                                            <textarea rows="2" x-model="beat.beat_instruction"
+                                                @change="saveBeatMetadata(beat)"
+                                                class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border leading-snug"></textarea>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block font-bold uppercase text-[10px] tracking-wider text-amber-700 dark:text-amber-400 mb-1">
+                                                🛑 Titik Berhenti Mutlak (Stopping Point Anti-Lompat Plot)
+                                            </label>
+                                            <textarea rows="2" x-model="beat.stopping_point"
+                                                @change="saveBeatMetadata(beat)"
+                                                class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border leading-snug"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <!-- Detail Jangkar Sensorik & Fokus Konflik Mikro (Tampil jika Direktif Beat dibuka) -->
+                                    <div x-show="activeBeatEditId === beat.id" x-cloak
+                                        class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t studio-border">
+                                        <div>
+                                            <label class="block font-semibold mb-1">👁️ Sensory Anchor (Panca Indra
+                                                Wajib)</label>
+                                            <input type="text" x-model="beat.sensory_anchor"
+                                                @change="saveBeatMetadata(beat)"
+                                                class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border" />
+                                        </div>
+                                        <div>
+                                            <label class="block font-semibold mb-1">⚔️ Conflict Focus (Gesekan
+                                                Batin/Subteks)</label>
+                                            <input type="text" x-model="beat.conflict_focus"
+                                                @change="saveBeatMetadata(beat)"
+                                                class="w-full px-2.5 py-1.5 rounded studio-bg-elevated border studio-border" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Kanvas Editor Naskah Sastrawi (Literata Serif 18px, 65ch) -->
+                                <div class="p-5 sm:p-7 flex flex-col items-center">
+                                    <!-- Banner Status Streaming SSE -->
+                                    <div x-show="streamingBeatId === beat.id"
+                                        class="w-full max-w-[65ch] mb-3 px-3 py-2 rounded-md studio-accent-soft studio-accent-text text-xs font-mono flex items-center justify-between">
+                                        <span class="streaming-cursor" x-text="streamStatusLabel"></span>
+                                        <button @click="stopStreaming()"
+                                            class="px-2 py-0.5 rounded bg-red-600 text-white font-bold text-[11px]">
+                                            ⏹️ Hentikan
+                                        </button>
+                                    </div>
+
+                                    <textarea rows="11" x-model="beat.generated_prose"
+                                        @input="scheduleAutoSaveBeat(beat)"
+                                        :placeholder="streamingBeatId === beat.id ? '⏳ AI sedang membaca konteks 4-Tier & merangkai kalimat pertama... Di CPU 2-Core butuh ±40–90 detik pada Beat pertama, lalu teks mengalir otomatis.' : 'Klik [▶️ Write Beat] untuk mengalirkan prosa sastrawi dari llama-server (SSE Streaming), atau ketik langsung naskah Anda di sini...'"
+                                        class="w-full manuscript-prose bg-transparent border-0 focus:ring-0 resize-y select-text"></textarea>
+
+                                    <!-- Ringkasan Ekstraksi State (Jika Sudah Diekstrak) -->
+                                    <template x-if="beat.extracted_summary">
+                                        <div
+                                            class="w-full max-w-[65ch] mt-4 p-2.5 rounded-lg studio-bg-secondary border studio-border text-xs studio-text-secondary">
+                                            <strong class="studio-accent-text font-mono">🧠 Ringkasan Kontinuitas
+                                                Beat:</strong>
+                                            <span x-text="beat.extracted_summary"></span>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Footer Action Bar Kartu Micro-Beat -->
+                                <div
+                                    class="px-4 py-3 studio-bg-secondary border-t studio-border flex flex-wrap items-center justify-between gap-2">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <!-- Tombol Utama Write Beat (SSE Streaming) -->
+                                        <button @click="streamWriteBeat(beat)" :disabled="streamingBeatId !== null"
+                                            class="px-4 py-1.5 rounded-md text-xs font-bold studio-accent-bg text-white shadow-sm disabled:opacity-50 transition flex items-center gap-1.5">
+                                            <span>▶️</span>
+                                            <span
+                                                x-text="beat.generated_prose ? 'Rewrite Beat (SSE Stream)' : `Write Beat (${beat.target_words} Kata)`"></span>
+                                        </button>
+
+                                        <!-- Tombol Extract Post-Beat State -->
+                                        <button @click="extractBeatState(beat)"
+                                            :disabled="extractingBeatId === beat.id || !beat.generated_prose"
+                                            class="px-3 py-1.5 rounded-md text-xs font-semibold studio-bg-elevated border studio-border hover:border-amber-500 disabled:opacity-40 transition">
+                                            <span
+                                                x-text="extractingBeatId === beat.id ? '⏳ Mengekstrak...' : '🧠 Extract State & Update Codex'"></span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Kanan Footer: Simpan Edit Manual & Riwayat Revisi -->
+                                    <div class="flex items-center gap-2">
+                                        <button @click="saveManualProseRevision(beat, 'Manual Author Polish')"
+                                            :disabled="!beat.generated_prose"
+                                            class="px-3 py-1.5 rounded-md text-xs font-semibold studio-bg-elevated border studio-border hover:border-emerald-500 disabled:opacity-40 transition">
+                                            💾 Simpan Revisi
+                                        </button>
+                                        <button @click="openRevisionHistory(beat)"
+                                            class="px-2.5 py-1.5 rounded-md text-xs font-mono studio-bg-elevated border studio-border hover:opacity-85 transition">
+                                            🕒 Riwayat Versi
+                                        </button>
+                                    </div>
+                                </div>
+                            </article>
+                        </template>
+
+                        <!-- Tombol Tambah 1 Micro-Beat Secara Bedah Tanpa Menghapus Beat Lain -->
+                        <div class="flex justify-center pt-2">
+                            <button @click="addSingleBeat()"
+                                class="px-4 py-2 rounded-lg text-xs font-semibold studio-bg-elevated border studio-border hover:border-amber-500 transition">
+                                + Tambah 1 Micro-Beat di Akhir Bab
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </main>
+
+        <!-- ==============================================================
+             4. RIGHT DRAWER (CHAPTER MIXING CONSOLE & SAMPLER CONTROLS)
+             ============================================================== -->
+        <aside x-show="rightDrawerOpen && !zenMode" x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="translate-x-full opacity-0" x-transition:enter-end="translate-x-0 opacity-100"
+            class="studio-drawer-right w-80 xl:w-96 shrink-0 studio-bg-secondary border-l studio-border flex flex-col h-[calc(100vh-8.5rem)] overflow-y-auto p-4 space-y-5 z-20 text-xs">
+
+            <template x-if="activeChapter">
+                <div class="space-y-5">
+                    <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                        <div>
+                            <h2 class="font-bold text-sm studio-accent-text">🎛️ Chapter Mixing Console</h2>
+                            <p class="text-[11px] studio-text-muted">Kendali Deterministik Pacing &amp; Komposisi</p>
+                        </div>
+                        <button @click="saveChapterConfig()"
+                            class="px-3 py-1.5 rounded-md font-bold studio-accent-bg text-white shadow-sm">
+                            Terapkan
+                        </button>
+                    </div>
+
+                    <!-- A. Target Kata Bab & Kalkulasi Otomatis Micro-Beats -->
+                    <div class="p-3 rounded-lg studio-bg-elevated border studio-border space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="font-bold">🎯 Target Kata Bab</label>
+                            <span class="font-mono font-bold text-sm studio-accent-text"
+                                x-text="`${activeChapter.target_word_count} kata`"></span>
+                        </div>
+                        <input type="range" min="800" max="8000" step="400"
+                            x-model.number="activeChapter.target_word_count" @change="saveChapterConfig()"
+                            class="studio-slider" />
+                        <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] font-mono">
+                            <div class="p-2 rounded studio-bg-secondary border studio-border text-center">
+                                <div class="studio-text-muted">Total Micro-Beats</div>
+                                <div class="text-sm font-bold studio-accent-text"
+                                    x-text="`${liveCalculatedBeatCount} Beats`"></div>
+                            </div>
+                            <div class="p-2 rounded studio-bg-secondary border studio-border text-center">
+                                <div class="studio-text-muted">Target / Beat</div>
+                                <div class="text-sm font-bold studio-text-primary" x-text="`~${liveWordsPerBeat} Kata`">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- B. Dropdown Pacing Mode & Ending Hook Style -->
+                    <div class="grid grid-cols-1 gap-3 p-3 rounded-lg studio-bg-elevated border studio-border">
+                        <div>
+                            <label class="block font-bold mb-1">⏱️ Mode Pacing Naratif</label>
+                            <select x-model="activeChapter.pacing_mode" @change="saveChapterConfig()"
+                                class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-semibold">
+                                <option value="SLOW_BURN">SLOW_BURN (1 Kejadian = 3 Beats / Atmosferik)</option>
+                                <option value="BALANCED">BALANCED (1 Kejadian = 2 Beats / Standar Novel)</option>
+                                <option value="FAST_PACED">FAST_PACED (1 Kejadian = 1 Beat / Intens)</option>
+                                <option value="FRENETIC_ACTION">FRENETIC_ACTION (Klimaks Cepat &amp; Padat)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold mb-1">🪝 Gaya Hook Akhir Bab (Ending Hook)</label>
+                            <select x-model="activeChapter.ending_hook_style" @change="saveChapterConfig()"
+                                class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-semibold">
+                                <option value="CLIFFHANGER">CLIFFHANGER (Ancaman / Kejutan Menggantung)</option>
+                                <option value="REVELATION_TWIST">REVELATION_TWIST (Pengungkapan Rahasia Baru)</option>
+                                <option value="EMOTIONAL_RESONANCE">EMOTIONAL_RESONANCE (Gema Batin &amp; Citra
+                                    Sensorik)</option>
+                                <option value="QUIET_UNEASE">QUIET_UNEASE (Ketenangan Semu yang Menggelisahkan)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- C. 5 SLIDER KOMPOSISI BUILDING (NARRATIVE MIX 0-100%) -->
+                    <div class="p-3.5 rounded-lg studio-bg-elevated border studio-border space-y-3.5">
+                        <div class="font-bold uppercase tracking-wider text-[11px] studio-text-secondary">
+                            🎚️ 5 Slider Komposisi Building (0% – 100%)
+                        </div>
+
+                        <!-- 1. World-Building Density -->
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-semibold">🏛️ World-Building Density</span>
+                                <span class="font-mono font-bold studio-accent-text"
+                                    x-text="`${activeChapter.mix_world_building}%`"></span>
+                            </div>
+                            <input type="range" min="0" max="100" step="5"
+                                x-model.number="activeChapter.mix_world_building" @change="saveChapterConfig()"
+                                class="studio-slider" />
+                        </div>
+
+                        <!-- 2. Internal Monologue / Psychology -->
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-semibold">🧠 Internal Monologue (Psikologi)</span>
+                                <span class="font-mono font-bold studio-accent-text"
+                                    x-text="`${activeChapter.mix_psychology}%`"></span>
+                            </div>
+                            <input type="range" min="0" max="100" step="5" x-model.number="activeChapter.mix_psychology"
+                                @change="saveChapterConfig()" class="studio-slider" />
+                        </div>
+
+                        <!-- 3. Sensory Atmosphere -->
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-semibold">👁️ Sensory Atmosphere (Panca Indra)</span>
+                                <span class="font-mono font-bold studio-accent-text"
+                                    x-text="`${activeChapter.mix_sensory}%`"></span>
+                            </div>
+                            <input type="range" min="0" max="100" step="5" x-model.number="activeChapter.mix_sensory"
+                                @change="saveChapterConfig()" class="studio-slider" />
+                        </div>
+
+                        <!-- 4. Dialogue Ratio -->
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-semibold">💬 Dialogue Ratio (Percakapan)</span>
+                                <span class="font-mono font-bold studio-accent-text"
+                                    x-text="`${activeChapter.mix_dialogue}%`"></span>
+                            </div>
+                            <input type="range" min="0" max="100" step="5" x-model.number="activeChapter.mix_dialogue"
+                                @change="saveChapterConfig()" class="studio-slider" />
+                        </div>
+
+                        <!-- 5. Action Intensity -->
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-semibold">⚔️ Action Intensity (Fisik/Tempo)</span>
+                                <span class="font-mono font-bold studio-accent-text"
+                                    x-text="`${activeChapter.mix_action}%`"></span>
+                            </div>
+                            <input type="range" min="0" max="100" step="5" x-model.number="activeChapter.mix_action"
+                                @change="saveChapterConfig()" class="studio-slider" />
+                        </div>
+                    </div>
+
+                    <!-- D. Kurva Ketegangan Bab (Tension Curve Visualizer) -->
+                    <div class="p-3.5 rounded-lg studio-bg-elevated border studio-border space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold uppercase tracking-wider text-[11px] studio-text-secondary">
+                                📈 Distribusi Kurva Ketegangan (Tension Curve)
+                            </span>
+                            <span class="font-mono text-[11px] studio-accent-text"
+                                x-text="`${pacingPlan.tension_min || 15}% → ${pacingPlan.tension_max || 55}%`"></span>
+                        </div>
+
+                        <!-- Grafik Batang Kurva Ketegangan per Beat -->
+                        <div
+                            class="h-24 flex items-end gap-1.5 pt-4 px-2 rounded studio-bg-secondary border studio-border">
+                            <template x-for="(tVal, idx) in (pacingPlan.tension_curve || [])" :key="idx">
+                                <div class="flex-1 flex flex-col items-center gap-1">
+                                    <span class="text-[9px] font-mono studio-text-muted" x-text="tVal"></span>
+                                    <div class="w-full rounded-t transition-all duration-300"
+                                        :class="tVal >= 80 ? 'bg-red-500' : (tVal >= 55 ? 'bg-amber-500' : 'bg-emerald-600')"
+                                        :style="`height: ${Math.max(12, Math.round(tVal * 0.55))}px`"></div>
+                                    <span class="text-[9px] font-mono font-bold" x-text="`B${idx+1}`"></span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Preview Direktif Prompt Hasil Kompilasi -->
+                        <details class="text-[11px]">
+                            <summary class="cursor-pointer font-semibold studio-accent-text">
+                                Lihat Hasil Terjemahan Prompt Mixing Directives
+                            </summary>
+                            <pre class="mt-2 p-2 rounded studio-bg-primary border studio-border whitespace-pre-wrap font-mono text-[10px] leading-relaxed"
+                                x-text="compiledMixingDirectives"></pre>
+                        </details>
+                    </div>
+
+                    <!-- E. Sampler Khusus Sastra (DRY, XTC, Min-P, Slot 0 Pinning) -->
+                    <div class="p-3.5 rounded-lg studio-bg-elevated border studio-border space-y-2.5">
+                        <div class="font-bold uppercase tracking-wider text-[11px] studio-text-secondary">
+                            🧪 Literary Sampler (llama-server Slot 0)
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                            <div>
+                                <label class="block studio-text-muted">Temperature</label>
+                                <input type="number" step="0.02" min="0.1" max="1.5"
+                                    x-model.number="samplerConfig.temperature"
+                                    class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                            </div>
+                            <div>
+                                <label class="block studio-text-muted">Min-P</label>
+                                <input type="number" step="0.005" min="0.01" max="0.5"
+                                    x-model.number="samplerConfig.min_p"
+                                    class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                            </div>
+                            <div>
+                                <label class="block studio-text-muted">DRY Multiplier</label>
+                                <input type="number" step="0.1" min="0.0" max="2.0"
+                                    x-model.number="samplerConfig.dry_multiplier"
+                                    class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                            </div>
+                            <div>
+                                <label class="block studio-text-muted">XTC Probability</label>
+                                <input type="number" step="0.02" min="0.0" max="0.5"
+                                    x-model.number="samplerConfig.xtc_probability"
+                                    class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-semibold mb-1">Catatan Sutradara Tambahan (Opsional)</label>
+                            <input type="text" x-model="samplerConfig.additional_author_note"
+                                placeholder="Misal: Perkuat bau hujan dan detak jam dinding..."
+                                class="w-full px-2.5 py-1 rounded studio-bg-primary border studio-border" />
+                        </div>
+                        <label class="flex items-center gap-2 pt-1 cursor-pointer">
+                            <input type="checkbox" x-model="autoExtractAfterStream" class="rounded" />
+                            <span class="text-[11px] studio-text-secondary">
+                                Otomatis jalankan <strong>Post-Beat State Extractor</strong> seusai Write Beat
+                            </span>
+                        </label>
+                        <div>
+                            <label class="block text-[11px] font-semibold mb-1 studio-text-secondary">
+                                Mode Ekstraksi State (Performa CPU)
+                            </label>
+                            <select x-model="extractMode"
+                                class="w-full px-2 py-1 rounded studio-bg-primary border studio-border text-[11px]">
+                                <option value="fast_local">⚡ Cepat <1ms (Lokal — Jaga KV Cache Slot 0 Utuh!)</option>
+                                <option value="auto">🧠 AI Extractor Penuh (llama-server JSON + Heuristik)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </aside>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 1: EDITOR FASE & RENTANG BAB (STORY PHASES)
+         ================================================================== -->
+    <div x-show="showPhaseModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="showPhaseModal = false"
+            class="w-full max-w-lg rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-4 text-xs">
+            <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                <h3 class="text-sm font-bold studio-accent-text"
+                    x-text="editingPhaseId ? '⚙️ Edit Rentang Fase & Guardrails' : '+ Tambah Fase Struktur Baru'"></h3>
+                <button @click="showPhaseModal = false" class="text-sm opacity-70 hover:opacity-100">✕</button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div class="col-span-2">
+                    <label class="block font-semibold mb-1">Nama Fase</label>
+                    <input type="text" x-model="phaseForm.phase_name"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border" />
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Urutan Fase</label>
+                    <input type="number" min="1" x-model.number="phaseForm.phase_order"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Mulai Bab</label>
+                    <input type="number" min="1" x-model.number="phaseForm.start_chapter"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Sampai Bab</label>
+                    <input type="number" min="1" x-model.number="phaseForm.end_chapter"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Pacing Bawaan</label>
+                    <select x-model="phaseForm.default_pacing"
+                        class="w-full px-2 py-1.5 rounded studio-bg-primary border studio-border">
+                        <option value="SLOW_BURN">SLOW_BURN</option>
+                        <option value="BALANCED">BALANCED</option>
+                        <option value="FAST_PACED">FAST_PACED</option>
+                        <option value="FRENETIC_ACTION">FRENETIC_ACTION</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Tension Minimum (%)</label>
+                    <input type="number" min="0" max="100" x-model.number="phaseForm.tension_min"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Tension Maksimum (%)</label>
+                    <input type="number" min="0" max="100" x-model.number="phaseForm.tension_max"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-1">Fokus Pembangunan Fase Ini (Building Focus)</label>
+                <textarea rows="2" x-model="phaseForm.building_focus"
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border"></textarea>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-1 text-red-600 dark:text-red-400">
+                    🛡️ Aturan Pengunci Fase (Strict Phase Guardrails)
+                </label>
+                <textarea rows="2" x-model="phaseForm.phase_guardrails"
+                    placeholder="Misal: DILARANG memunculkan antagonis utama atau menyelesaikan misteri inti di rentang bab ini."
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border"></textarea>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t studio-border">
+                <template x-if="editingPhaseId">
+                    <button @click="deletePhase(editingPhaseId)"
+                        class="px-3 py-1.5 rounded bg-red-600/15 text-red-500 font-semibold">
+                        🗑️ Hapus Fase
+                    </button>
+                </template>
+                <div class="flex items-center gap-2 ml-auto">
+                    <button @click="showPhaseModal = false"
+                        class="px-3 py-1.5 rounded studio-bg-secondary border studio-border">
+                        Batal
+                    </button>
+                    <button @click="savePhaseForm()" class="px-4 py-1.5 rounded font-bold studio-accent-bg text-white">
+                        💾 Simpan Fase
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 2: EDITOR CODEX & CHARACTER SHEET (CURRENT STATE & KNOWLEDGE)
+         ================================================================== -->
+    <div x-show="showCodexModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="showCodexModal = false"
+            class="w-full max-w-lg rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-3.5 text-xs max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                <h3 class="text-sm font-bold studio-accent-text"
+                    x-text="editingCodexId ? '📚 Edit Entitas Codex & State' : '+ Tambah Entitas Codex Baru'"></h3>
+                <button @click="showCodexModal = false" class="text-sm opacity-70 hover:opacity-100">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Kategori</label>
+                    <select x-model="codexForm.category"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-semibold">
+                        <option value="CHARACTER">CHARACTER (Karakter)</option>
+                        <option value="LOCATION">LOCATION (Lokasi)</option>
+                        <option value="WORLD_RULE">WORLD_RULE (Aturan Dunia)</option>
+                        <option value="ITEM">ITEM (Artefak/Objek)</option>
+                        <option value="LORE">LORE (Sejarah/Faksi)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Nama Entitas</label>
+                    <input type="text" x-model="codexForm.name"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-bold" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Kata Kunci Pemicu FTS5 (CSV)</label>
+                    <input type="text" x-model="codexForm.keywords_csv" placeholder="Arya, juru tulis, sandi..."
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+                <div class="flex items-end pb-1">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="codexForm.is_pinned" class="rounded" />
+                        <span class="font-semibold">📌 Pin ke Slot 0 (Selalu Aktif)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-1">Deskripsi Inti (Core Description)</label>
+                <textarea rows="3" x-model="codexForm.core_description"
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border"></textarea>
+            </div>
+
+            <div x-show="codexForm.category === 'CHARACTER'">
+                <label class="block font-semibold mb-1">Ciri Khas Gaya Bicara (Speech Style)</label>
+                <input type="text" x-model="codexForm.speech_style"
+                    placeholder="Misal: Kalimat pendek, formal, jarang menyebut nama lawan bicara..."
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border" />
+            </div>
+
+            <!-- Panel Current State & Knowledge State -->
+            <div class="p-3 rounded-lg studio-bg-secondary border studio-border space-y-2.5">
+                <div class="font-bold uppercase tracking-wider text-[11px] studio-accent-text">
+                    🔄 Current State &amp; Knowledge State (Diperbarui Otomatis / Manual)
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold mb-1">📍 Lokasi Terkini</label>
+                        <input type="text" x-model="codexForm.current_state.location"
+                            class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">❤️ Kondisi Fisik</label>
+                        <input type="text" x-model="codexForm.current_state.condition"
+                            class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold mb-1">🎭 Status Emosi</label>
+                        <input type="text" x-model="codexForm.current_state.emotional_state"
+                            class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">🧠 Knowledge State (Fakta yang Diketahui)</label>
+                        <input type="text" x-model="codexForm.current_state.knowledge"
+                            class="w-full px-2 py-1 rounded studio-bg-primary border studio-border" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t studio-border">
+                <template x-if="editingCodexId">
+                    <button @click="deleteCodex(editingCodexId)"
+                        class="px-3 py-1.5 rounded bg-red-600/15 text-red-500 font-semibold">
+                        🗑️ Hapus Entitas
+                    </button>
+                </template>
+                <div class="flex items-center gap-2 ml-auto">
+                    <button @click="showCodexModal = false"
+                        class="px-3 py-1.5 rounded studio-bg-secondary border studio-border">
+                        Batal
+                    </button>
+                    <button @click="saveCodexForm()" class="px-4 py-1.5 rounded font-bold studio-accent-bg text-white">
+                        💾 Simpan ke SQLite FTS5
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 3: TAMBAH BAB BARU
+         ================================================================== -->
+    <div x-show="showNewChapterModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="showNewChapterModal = false"
+            class="w-full max-w-md rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-3.5 text-xs">
+            <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                <h3 class="text-sm font-bold studio-accent-text">+ Buat Bab Baru</h3>
+                <button @click="showNewChapterModal = false" class="text-sm opacity-70 hover:opacity-100">✕</button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Nomor Bab</label>
+                    <input type="number" min="1" x-model.number="newChapterForm.chapter_number"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block font-semibold mb-1">Judul Bab</label>
+                    <input type="text" x-model="newChapterForm.title"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-bold" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Target Kata Bab</label>
+                    <input type="number" step="400" min="400" x-model.number="newChapterForm.target_word_count"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Mode Pacing</label>
+                    <select x-model="newChapterForm.pacing_mode"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border">
+                        <option value="SLOW_BURN">SLOW_BURN</option>
+                        <option value="BALANCED">BALANCED</option>
+                        <option value="FAST_PACED">FAST_PACED</option>
+                        <option value="FRENETIC_ACTION">FRENETIC_ACTION</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-1">Tujuan Naratif Bab (Chapter Goal)</label>
+                <textarea rows="3" x-model="newChapterForm.chapter_goal"
+                    placeholder="Jelaskan kejadian utama yang harus dicapai di bab ini..."
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t studio-border">
+                <button @click="showNewChapterModal = false"
+                    class="px-3 py-1.5 rounded studio-bg-secondary border studio-border">
+                    Batal
+                </button>
+                <button @click="createNewChapter()" class="px-4 py-1.5 rounded font-bold studio-accent-bg text-white">
+                    ✨ Buat Bab &amp; Rancang Beats
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 4: BUAT PROJECT NOVEL BARU
+         ================================================================== -->
+    <div x-show="showNewProjectModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="showNewProjectModal = false"
+            class="w-full max-w-lg rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-3.5 text-xs">
+            <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                <h3 class="text-sm font-bold studio-accent-text">✒️ Buat Proyek Novel Baru</h3>
+                <button @click="showNewProjectModal = false" class="text-sm opacity-70 hover:opacity-100">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Judul Novel</label>
+                    <input type="text" x-model="newProjectForm.title" placeholder="Misal: Jejak Kabut di Kaki Merapi"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-bold" />
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Nama Penulis / Pena</label>
+                    <input type="text" x-model="newProjectForm.author_name" placeholder="Nama Penulis..."
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border" />
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-1">Genre</label>
+                <input type="text" x-model="newProjectForm.genre"
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border" />
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-1">Logline / Premis Singkat</label>
+                <textarea rows="2" x-model="newProjectForm.logline"
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border"></textarea>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-1">Tujuan Utama / North Star Novel</label>
+                <textarea rows="2" x-model="newProjectForm.main_objective"
+                    placeholder="Kompas utama yang mengarahkan Bab 1 sampai Tamat..."
+                    class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold mb-1">Total Rencana Bab</label>
+                    <input type="number" min="6" max="200" x-model.number="newProjectForm.total_planned_chapters"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Target Kata Bawaan / Bab</label>
+                    <input type="number" step="400" min="800" x-model.number="newProjectForm.default_chapter_words"
+                        class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border font-mono" />
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t studio-border">
+                <button @click="$refs.backupRestoreInput.click()" :disabled="isRestoringBackup"
+                    class="px-3 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold disabled:opacity-50">
+                    📥 Pulihkan dari Backup (.json)
+                </button>
+                <div class="flex items-center gap-2 ml-auto">
+                    <button @click="showNewProjectModal = false"
+                        class="px-3 py-1.5 rounded studio-bg-secondary border studio-border">
+                        Batal
+                    </button>
+                    <button @click="createNewProject()" class="px-4 py-1.5 rounded font-bold studio-accent-bg text-white">
+                        🚀 Buat Novel &amp; 6 Fase Struktur
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 5: RIWAYAT REVISI MICRO-BEAT (BEAT REVISIONS)
+         ================================================================== -->
+    <div x-show="showRevisionModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="showRevisionModal = false"
+            class="w-full max-w-2xl rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-4 text-xs max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                <h3 class="text-sm font-bold studio-accent-text">
+                    🕒 Riwayat Revisi Micro-Beat #<span
+                        x-text="revisionBeatTarget ? revisionBeatTarget.beat_number : ''"></span>
+                </h3>
+                <button @click="showRevisionModal = false" class="text-sm opacity-70 hover:opacity-100">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-3 pr-1">
+                <template x-if="beatRevisions.length === 0">
+                    <div class="p-6 text-center studio-text-muted">
+                        Belum ada riwayat revisi yang tersimpan untuk Micro-Beat ini.
+                    </div>
+                </template>
+                <template x-for="rev in beatRevisions" :key="rev.id">
+                    <div class="p-3.5 rounded-lg studio-bg-secondary border studio-border space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 font-mono">
+                                <span class="font-bold studio-accent-text"
+                                    x-text="`Revisi #${rev.revision_number}`"></span>
+                                <span class="px-2 py-0.5 rounded studio-bg-elevated"
+                                    x-text="`${rev.word_count} kata`"></span>
+                                <span class="studio-text-muted" x-text="rev.revision_note"></span>
+                            </div>
+                            <button @click="restoreRevision(rev)"
+                                class="px-2.5 py-1 rounded font-semibold studio-accent-bg text-white">
+                                ↩️ Pulihkan Versi Ini
+                            </button>
+                        </div>
+                        <p class="font-serif text-sm studio-text-primary whitespace-pre-line line-clamp-4"
+                            x-text="rev.prose_content"></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 6: DUAL-MODEL AI RUNTIME SWITCHER, KATALOG, & TAMBAH MODEL KUSTOM
+         ================================================================== -->
+    <div x-show="showModelModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="closeModelManager()"
+            class="w-full max-w-4xl rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-3 text-xs max-h-[90vh] flex flex-col">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b studio-border pb-3">
+                <div>
+                    <h3 class="text-sm font-bold studio-accent-text">⚡ Pengelola Sumber AI: Model Lokal (.GGUF) &amp; API Online</h3>
+                    <p class="text-[11px] studio-text-muted mt-0.5 font-mono"
+                        x-text="aiProviderSummary.provider_type !== 'local_llama'
+                            ? `Aktif: 🌐 ${aiProviderSummary.display_name} (${aiProviderSummary.model_name})`
+                            : (runtimeMode === 'browser'
+                                ? 'Mode GitHub Pages / Browser (Penyimpanan Naskah di Browser) — Pilih Sumber AI &amp; API Key'
+                                : `Aktif: 🖥️ Lokal GGUF | Folder: ${modelRuntime.models_dir} | CPU: ${modelRuntime.total_cpu_cores} Core`)">
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button x-show="aiProviderSummary.provider_type !== 'local_llama'" @click="switchBackToLocalAi()"
+                        :disabled="isSavingProvider"
+                        class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold"
+                        x-text="runtimeMode === 'browser' ? '⏏️ Nonaktifkan API' : '↩️ Kembali ke Mode Lokal'">
+                    </button>
+                    <button @click="loadModelsStatus(); loadAiProviderConfig();"
+                        class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold">
+                        🔄 Refresh Status
+                    </button>
+                    <button x-show="modelRuntime.llama_server_online" @click="stopAiEngine()"
+                        :disabled="isSwitchingModel"
+                        class="px-2.5 py-1.5 rounded bg-red-600/15 text-red-500 font-semibold hover:bg-red-600/25 disabled:opacity-50">
+                        🛑 Matikan AI Lokal (Bebaskan RAM)
+                    </button>
+                    <button @click="closeModelManager()" class="text-sm opacity-70 hover:opacity-100 px-2">✕</button>
+                </div>
+            </div>
+
+            <!-- Navigasi Tab Pengelola Model -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button @click="modelModalTab = 'online'"
+                        class="px-3 py-1.5 rounded-md font-semibold border transition"
+                        :class="modelModalTab === 'online' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
+                        🌐 API Online (Pakai Key Saja)
+                    </button>
+                    <button x-show="runtimeMode !== 'browser'" @click="modelModalTab = 'local'"
+                        class="px-3 py-1.5 rounded-md font-semibold border transition"
+                        :class="modelModalTab === 'local' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
+                        💾 Model Lokal (<span x-text="modelRuntime.local_models.length"></span>)
+                    </button>
+                    <button x-show="runtimeMode !== 'browser'" @click="modelModalTab = 'catalog'"
+                        class="px-3 py-1.5 rounded-md font-semibold border transition"
+                        :class="modelModalTab === 'catalog' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
+                        📚 Katalog GGUF (<span x-text="modelRuntime.curated_catalog.length"></span>)
+                    </button>
+                    <button x-show="runtimeMode !== 'browser'" @click="modelModalTab = 'custom'"
+                        class="px-3 py-1.5 rounded-md font-semibold border transition"
+                        :class="modelModalTab === 'custom' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
+                        ➕ Unduh GGUF Kustom
+                    </button>
+                </div>
+                <span x-show="isSwitchingModel" class="font-mono text-amber-500 animate-pulse font-bold">
+                    ⏳ Sedang memuat model ke RAM...
+                </span>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+                <!-- TAB 1: DAFTAR MODEL LOKAL & IMPOR DARI ~/Downloads -->
+                <div x-show="modelModalTab === 'local'" class="space-y-4">
+                    <div x-show="!modelRuntime.llama_server_online && aiProviderSummary.provider_type === 'local_llama'"
+                        class="p-3 rounded-lg studio-bg-secondary border studio-border flex flex-wrap items-center justify-between gap-2">
+                        <div class="space-y-0.5">
+                            <p class="font-bold studio-text-primary">💡 Mesin AI Lokal Belum Berjalan</p>
+                            <p class="text-[11px] studio-text-muted">Aktifkan salah satu model <code class="font-mono">.gguf</code> di bawah, atau langsung pakai API Online (cukup pilih sumber &amp; tempel API Key).</p>
+                        </div>
+                        <button type="button" @click="modelModalTab = 'online'"
+                            class="px-3 py-1.5 rounded studio-accent-bg text-white font-semibold">
+                            🌐 Hubungkan API Online
+                        </button>
+                    </div>
+
+                    <template x-if="modelRuntime.local_models.length === 0">
+                        <div class="p-6 rounded-lg studio-bg-secondary border studio-border text-center space-y-2">
+                            <p class="studio-text-muted">Belum ada file `.gguf` di folder <code class="font-mono"
+                                    x-text="modelRuntime.models_dir"></code>.</p>
+                            <div class="flex justify-center gap-2">
+                                <button @click="modelModalTab = 'catalog'"
+                                    class="px-3 py-1.5 rounded studio-accent-bg text-white font-semibold">
+                                    Lihat Katalog Rekomendasi
+                                </button>
+                                <button @click="modelModalTab = 'custom'"
+                                    class="px-3 py-1.5 rounded studio-bg-elevated border studio-border font-semibold">
+                                    + Tambah URL / Impor Model
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="space-y-2">
+                        <template x-for="m in modelRuntime.local_models" :key="m.path">
+                            <div class="p-3 rounded-lg studio-bg-secondary border flex flex-wrap items-center justify-between gap-2"
+                                :class="m.is_active ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'studio-border'">
+                                <div class="space-y-0.5 max-w-xl">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-bold studio-text-primary" x-text="m.filename"></span>
+                                        <span class="font-mono px-1.5 py-0.5 rounded studio-bg-elevated text-[10px]"
+                                            x-text="`${m.size_gb} GB`"></span>
+                                        <span x-show="m.is_custom"
+                                            class="px-1.5 py-0.5 rounded studio-accent-soft studio-accent-text text-[10px] font-semibold">
+                                            Kustom
+                                        </span>
+                                        <span x-show="m.is_active"
+                                            class="px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-500 font-bold text-[10px]">
+                                            ✓ AKTIF DI RAM
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] studio-text-muted" x-text="m.recommended_for"></p>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button @click="switchActiveModel(m.filename)"
+                                        :disabled="isSwitchingModel || m.is_active"
+                                        class="px-3 py-1.5 rounded font-semibold transition" :class="m.is_active
+                                                ? 'studio-bg-elevated studio-text-muted cursor-default'
+                                                : 'studio-accent-bg text-white hover:opacity-90 disabled:opacity-50'">
+                                        <span x-text="m.is_active ? 'Sedang Aktif' : '🔄 Switch &amp; Muat'"></span>
+                                    </button>
+                                    <button x-show="!m.is_active" @click="deleteLocalModel(m.filename)"
+                                        title="Hapus file .gguf ini dari disk"
+                                        class="px-2 py-1.5 rounded bg-red-600/10 text-red-500 hover:bg-red-600/20 font-semibold">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Deteksi otomatis file .gguf di ~/Downloads -->
+                    <template x-if="(modelRuntime.downloads_gguf || []).length > 0">
+                        <div class="pt-3 border-t studio-border space-y-2">
+                            <span class="block font-bold uppercase tracking-wider studio-text-secondary">
+                                📂 File .GGUF Ditemukan di Folder ~/Downloads
+                            </span>
+                            <template x-for="df in modelRuntime.downloads_gguf" :key="df.path">
+                                <div
+                                    class="p-2.5 rounded-lg studio-bg-primary border studio-border flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <span class="font-bold font-mono" x-text="df.filename"></span>
+                                        <span class="ml-2 text-[11px] studio-text-muted"
+                                            x-text="`(${df.size_gb} GB)`"></span>
+                                    </div>
+                                    <template x-if="df.already_in_models">
+                                        <span class="text-[11px] text-emerald-500 font-semibold">✓ Sudah ada di
+                                            models/</span>
+                                    </template>
+                                    <template x-if="!df.already_in_models">
+                                        <button @click="importModelFromDownloads(df.filename)"
+                                            class="px-3 py-1 rounded studio-accent-bg text-white font-semibold">
+                                            📥 Pindahkan ke Studio (models/)
+                                        </button>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- TAB 2: KATALOG KURASI LENGKAP (+ SPEK, PLUS, MINUS) -->
+                <div x-show="modelModalTab === 'catalog'" class="space-y-2.5">
+                    <template x-for="cat in modelRuntime.curated_catalog" :key="cat.catalog_id">
+                        <div class="p-3.5 rounded-lg studio-bg-primary border studio-border flex flex-col gap-2">
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                                <div class="space-y-1 max-w-2xl">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="font-bold text-[13px]" x-text="cat.display_name"></span>
+                                        <span
+                                            class="px-1.5 py-0.5 rounded studio-bg-elevated border studio-border text-[10px] font-mono"
+                                            x-text="`Min RAM ${cat.min_ram_gb}GB • ${cat.min_cpu_cores}+ Core`"></span>
+                                        <span x-show="cat.is_recommended_cpu"
+                                            class="px-1.5 py-0.5 rounded studio-accent-soft studio-accent-text text-[10px] font-bold">
+                                            ⚡ Cocok CPU 2-Core
+                                        </span>
+                                    </div>
+                                    <div class="text-[10px] font-semibold uppercase tracking-wide studio-accent-text"
+                                        x-text="cat.tier"></div>
+                                    <p class="text-[11px] studio-text-primary" x-text="cat.recommended_for"></p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-1.5 pt-1 text-[11px]">
+                                        <div
+                                            class="p-1.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                            <strong>(+) Kelebihan:</strong> <span x-text="cat.pros"></span>
+                                        </div>
+                                        <div class="p-1.5 rounded bg-amber-500/10 text-amber-800 dark:text-amber-300">
+                                            <strong>(-) Kekurangan:</strong> <span x-text="cat.cons"></span>
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] font-mono studio-text-muted pt-0.5"
+                                        x-text="`File: ${cat.filename} • Unduh: ${(cat.size_mb / 1024).toFixed(2)} GB • Est. Total RAM: ~${cat.ram_estimate_gb} GB`">
+                                    </p>
+                                </div>
+
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <template x-if="cat.downloaded">
+                                        <button @click="switchActiveModel(cat.filename)"
+                                            :disabled="isSwitchingModel || cat.is_active"
+                                            class="px-3 py-1.5 rounded font-semibold"
+                                            :class="cat.is_active ? 'bg-emerald-600/20 text-emerald-500' : 'studio-accent-bg text-white'">
+                                            <span x-text="cat.is_active ? '✓ Aktif' : '⚡ Aktifkan'"></span>
+                                        </button>
+                                    </template>
+                                    <template
+                                        x-if="!cat.downloaded && (!cat.download_job || cat.download_job.status !== 'DOWNLOADING')">
+                                        <button @click="downloadCuratedModel(cat.catalog_id)"
+                                            class="px-3 py-1.5 rounded font-semibold studio-bg-elevated border studio-border hover:border-amber-500">
+                                            <span
+                                                x-text="cat.partial_mb > 0 ? `⬇️ Lanjutkan (${cat.partial_percent}%)` : '⬇️ Unduh GGUF'"></span>
+                                        </button>
+                                    </template>
+                                    <template x-if="cat.download_job && cat.download_job.status === 'DOWNLOADING'">
+                                        <button @click="cancelModelDownload(cat.catalog_id)"
+                                            class="px-2.5 py-1.5 rounded bg-red-600/15 text-red-500 font-semibold">
+                                            ✕ Batal
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <template
+                                x-if="!cat.downloaded && cat.partial_mb > 0 && (!cat.download_job || cat.download_job.status !== 'DOWNLOADING')">
+                                <div class="text-[10px] font-mono text-amber-500"
+                                    x-text="`Tersimpan sebagian di disk: ${cat.partial_mb} MB / ${cat.size_mb} MB (${cat.partial_percent}%) — siap dilanjutkan.`">
+                                </div>
+                            </template>
+
+                            <template x-if="cat.download_job && cat.download_job.status === 'DOWNLOADING'">
+                                <div class="space-y-1">
+                                    <div class="flex justify-between text-[10px] font-mono studio-accent-text">
+                                        <span
+                                            x-text="`Mengunduh: ${cat.download_job.downloaded_mb} / ${cat.download_job.total_mb} MB (${cat.download_job.percent}%)`"></span>
+                                        <span x-text="`${cat.download_job.speed_mbps} MB/s`"></span>
+                                    </div>
+                                    <div class="w-full h-1.5 rounded-full studio-bg-muted overflow-hidden">
+                                        <div class="h-full studio-accent-bg transition-all"
+                                            :style="`width: ${cat.download_job.percent}%`"></div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="cat.download_job && cat.download_job.status === 'ERROR'">
+                                <div class="text-[11px] text-red-500 font-mono"
+                                    x-text="`Error unduh: ${cat.download_job.error}`"></div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- TAB 3: FORM TAMBAH / UNDUH MODEL KUSTOM (.GGUF) -->
+                <div x-show="modelModalTab === 'custom'" class="space-y-4">
+                    <div class="p-4 rounded-lg studio-bg-secondary border studio-border space-y-3">
+                        <h4 class="font-bold text-sm studio-accent-text">➕ Tambah &amp; Unduh Model GGUF Kustom dari
+                            HuggingFace</h4>
+                        <p class="text-[11px] studio-text-muted leading-relaxed">
+                            Tempelkan URL langsung ke file <code class="font-mono">.gguf</code> (misalnya dari
+                            repositori <strong>bartowski</strong>, <strong>unsloth</strong>, atau
+                            <strong>mradermacher</strong>) atau isi format <code class="font-mono">owner/repo</code>
+                            beserta nama file GGUF-nya. Studio otomatis memverifikasi URL dan mengunduh secara resumable
+                            ke folder <code class="font-mono" x-text="modelRuntime.models_dir"></code>.
+                        </p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-semibold mb-1">URL HTTPS .GGUF atau HuggingFace Repo ID
+                                    *</label>
+                                <input type="text" x-model="customModelForm.url_or_repo"
+                                    placeholder="https://huggingface.co/.../resolve/main/Model-Q4_K_M.gguf"
+                                    class="w-full px-2.5 py-2 rounded studio-bg-primary border studio-border font-mono text-[11px]" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Nama File .GGUF (Wajib jika pakai Repo
+                                    ID)</label>
+                                <input type="text" x-model="customModelForm.filename"
+                                    placeholder="Kosongkan jika URL di kiri sudah berakhiran .gguf"
+                                    class="w-full px-2.5 py-2 rounded studio-bg-primary border studio-border font-mono text-[11px]" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Nama Tampilan / Label Model (Opsional)</label>
+                                <input type="text" x-model="customModelForm.display_name"
+                                    placeholder="Misal: Kunoichi 7B Q4 / Qwen3-4B Novel"
+                                    class="w-full px-2.5 py-2 rounded studio-bg-primary border studio-border" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Catatan Kegunaan (Opsional)</label>
+                                <input type="text" x-model="customModelForm.notes"
+                                    placeholder="Misal: Bagus untuk adegan misteri & dialog"
+                                    class="w-full px-2.5 py-2 rounded studio-bg-primary border studio-border" />
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2">
+                            <span class="text-[10px] font-mono studio-text-muted">
+                                Sumber HTTPS tepercaya: huggingface.co, hf.co, github.com
+                            </span>
+                            <button @click="downloadCustomModel()" :disabled="isSubmittingCustomModel"
+                                class="px-4 py-2 rounded font-bold studio-accent-bg text-white disabled:opacity-50">
+                                <span
+                                    x-text="isSubmittingCustomModel ? '⏳ Memverifikasi URL...' : '⬇️ Verifikasi &amp; Unduh ke Studio'"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Progres Download Kustom Aktif -->
+                    <template x-if="(modelRuntime.custom_download_jobs || []).length > 0">
+                        <div class="space-y-2">
+                            <span class="block font-bold uppercase tracking-wider studio-text-secondary">
+                                Progres Unduhan Model Kustom
+                            </span>
+                            <template x-for="cj in modelRuntime.custom_download_jobs" :key="cj.catalog_id">
+                                <div class="p-3 rounded-lg studio-bg-primary border studio-border space-y-1.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold font-mono" x-text="cj.filename"></span>
+                                        <button x-show="cj.status === 'DOWNLOADING'"
+                                            @click="cancelModelDownload(cj.catalog_id)"
+                                            class="px-2 py-0.5 rounded bg-red-600/15 text-red-500 text-[11px] font-semibold">
+                                            ✕ Batal
+                                        </button>
+                                    </div>
+                                    <template x-if="cj.status === 'DOWNLOADING'">
+                                        <div class="space-y-1">
+                                            <div class="flex justify-between text-[10px] font-mono studio-accent-text">
+                                                <span
+                                                    x-text="`${cj.downloaded_mb} / ${cj.total_mb} MB (${cj.percent}%)`"></span>
+                                                <span x-text="`${cj.speed_mbps} MB/s`"></span>
+                                            </div>
+                                            <div class="w-full h-1.5 rounded-full studio-bg-muted overflow-hidden">
+                                                <div class="h-full studio-accent-bg transition-all"
+                                                    :style="`width: ${cj.percent}%`"></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="cj.status === 'ERROR'">
+                                        <div class="text-[11px] text-red-500 font-mono" x-text="`Error: ${cj.error}`">
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Cara Manual -->
+                    <div class="p-3.5 rounded-lg studio-bg-primary border studio-border text-[11px] space-y-1">
+                        <div class="font-bold">💡 Cara Menambahkan Model Secara Manual (Tanpa Unduh Lewat Web):</div>
+                        <p class="studio-text-muted">
+                            Salin file <code class="font-mono">.gguf</code> mana pun hasil unduhan browser/IDM ke folder
+                            <code class="font-mono" x-text="modelRuntime.models_dir"></code> (atau biarkan di <code
+                                class="font-mono">~/Downloads</code>),
+                            lalu buka tab <strong>💾 Model Lokal</strong> dan klik tombol <strong>🔄 Refresh
+                                Status</strong>.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- TAB 4: API ONLINE & SUMBER EKSTERNAL KOMPATIBEL -->
+                <div x-show="modelModalTab === 'online'" class="space-y-4">
+                    <div class="p-4 rounded-lg studio-bg-secondary border studio-border space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h4 class="font-bold text-sm studio-accent-text">
+                                    🌐 Hubungkan API Online (Cukup Pilih Sumber &amp; API Key)
+                                </h4>
+                                <p class="text-[11px] studio-text-muted mt-0.5">
+                                    Tidak perlu repot memilih ID model. Pilih sumber AI lalu masukkan API Key Anda — Studio otomatis mendeteksi model aktif terbaik, menguji koneksi, dan langsung menjalankannya untuk menulis.
+                                </p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded font-mono text-[11px] font-bold"
+                                :class="aiProviderSummary.provider_type !== 'local_llama' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'studio-bg-primary studio-text-muted'"
+                                x-text="aiProviderSummary.provider_type !== 'local_llama' ? `AKTIF: ${aiProviderSummary.model_name}` : 'Mode Lokal Aktif'"></span>
+                        </div>
+
+                        <!-- Langkah 1: Pilih Sumber AI -->
+                        <div>
+                            <label class="block font-semibold mb-1.5">1. Pilih Sumber AI</label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-1.5">
+                                <template x-for="preset in aiProviderPresets" :key="preset.preset_id">
+                                    <button type="button" @click="selectProviderPreset(preset)"
+                                        :class="aiProviderForm.preset_id === preset.preset_id ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-primary studio-border hover:border-amber-500'"
+                                        class="p-2 rounded border text-left transition">
+                                        <div class="font-bold truncate" x-text="preset.label"></div>
+                                        <div class="text-[10px] opacity-80 truncate"
+                                            x-text="preset.requires_api_key ? 'Perlu API Key • Model Otomatis' : 'Tanpa Key • Deteksi Otomatis'"></div>
+                                    </button>
+                                </template>
+                            </div>
+                            <template x-if="selectedPresetMeta">
+                                <p class="text-[11px] studio-text-muted mt-1.5" x-text="`ℹ️ ${selectedPresetMeta.notes}`"></p>
+                            </template>
+                        </div>
+
+                        <!-- Langkah 2: Masukkan API Key -->
+                        <div class="pt-1 space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <label class="font-semibold"
+                                    x-text="selectedPresetMeta && !selectedPresetMeta.requires_api_key ? '2. API Key (Opsional untuk Ollama / Server Lokal)' : '2. Masukkan API Key *'"></label>
+                                <button type="button" x-show="aiProviderSummary.has_api_key"
+                                    @click="saveAndActivateAiProvider(true)"
+                                    class="text-[10px] text-red-500 hover:underline">
+                                    🗑️ Hapus Key &amp; Kembali ke Lokal
+                                </button>
+                            </div>
+                            <input type="password" x-model="aiProviderForm.api_key"
+                                :placeholder="aiProviderSummary.has_api_key && aiProviderSummary.preset_id === aiProviderForm.preset_id ? `Tersimpan (${aiProviderSummary.api_key_masked}) — kosongkan jika tetap pakai key ini` : (selectedPresetMeta && !selectedPresetMeta.requires_api_key ? 'Kosongkan bila server lokal/LAN tanpa autentikasi' : 'Tempel API Key di sini (disimpan lokal aman izin 0600)')"
+                                class="w-full px-3 py-2 rounded studio-bg-primary border studio-border font-mono text-xs" />
+                            <p class="text-[11px] studio-text-muted">
+                                🤖 Model aktif terbaik dari akun Anda akan dipilih, diuji, dan langsung dijalankan otomatis tanpa perlu konfigurasi manual.
+                            </p>
+                        </div>
+
+                        <!-- Hasil Uji / Aktivasi Koneksi -->
+                        <template x-if="providerTestResult">
+                            <div class="p-2.5 rounded-lg border font-mono text-[11px]"
+                                :class="providerTestResult.ok ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 border-red-500 text-red-500'"
+                                x-text="providerTestResult.ok ? `✓ ${providerTestResult.message}` : `✕ ${providerTestResult.message}`">
+                            </div>
+                        </template>
+
+                        <!-- Tombol Aksi Utama -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t studio-border">
+                            <button type="button" @click="testAiProviderConnection()" :disabled="isTestingProvider || isSavingProvider"
+                                class="px-3.5 py-2 rounded font-semibold studio-bg-primary border studio-border hover:border-amber-500 disabled:opacity-50">
+                                <span x-text="isTestingProvider ? '⏳ Menguji API...' : '⚡ Uji Koneksi Saja'"></span>
+                            </button>
+                            <button type="button" @click="saveAndActivateAiProvider(false)" :disabled="isSavingProvider || isTestingProvider"
+                                class="px-4 py-2 rounded font-bold studio-accent-bg text-white disabled:opacity-50">
+                                <span x-text="isSavingProvider ? '⏳ Menguji &amp; Menjalankan API...' : '🚀 Aktifkan &amp; Langsung Jalankan API'"></span>
+                            </button>
+                        </div>
+
+                        <!-- Pengaturan Lanjutan Opsional -->
+                        <div class="pt-1">
+                            <button type="button" @click="showAdvancedProviderOptions = !showAdvancedProviderOptions"
+                                class="text-[11px] font-semibold studio-text-secondary hover:underline">
+                                <span x-text="showAdvancedProviderOptions ? '▾ Sembunyikan Pengaturan Lanjutan' : '▸ Pengaturan Lanjutan (Ganti Model / URL Kustom — Opsional)'"></span>
+                            </button>
+
+                            <div x-show="showAdvancedProviderOptions"
+                                class="mt-2 p-3 rounded-lg studio-bg-primary border studio-border space-y-3">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block font-semibold mb-1">Protokol API</label>
+                                        <select x-model="aiProviderForm.provider_type"
+                                            class="w-full px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]">
+                                            <option value="openai_compatible">OpenAI-Compatible (/v1/chat/completions)</option>
+                                            <option value="anthropic">Anthropic Claude (/v1/messages)</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block font-semibold mb-1">Base URL Endpoint</label>
+                                        <input type="text" x-model="aiProviderForm.base_url"
+                                            placeholder="https://api.openai.com/v1"
+                                            class="w-full px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="font-semibold">Nama / ID Model Khusus (Opsional)</label>
+                                        <button type="button" @click="fetchRemoteModelsList()" :disabled="isFetchingRemoteModels"
+                                            class="text-[10px] px-2 py-0.5 rounded studio-accent-soft studio-accent-text font-semibold hover:opacity-80 disabled:opacity-50">
+                                            <span x-text="isFetchingRemoteModels ? '⏳ Mengambil...' : '🔍 Ambil Daftar Model'"></span>
+                                        </button>
+                                    </div>
+                                    <input type="text" x-model="aiProviderForm.model_name"
+                                        placeholder="Kosongkan untuk otomatis memilih model aktif terbaik dari API"
+                                        class="w-full px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]" />
+
+                                    <template x-if="selectedPresetMeta && (selectedPresetMeta.suggested_models || []).length > 0">
+                                        <div class="flex flex-wrap gap-1 mt-1.5">
+                                            <template x-for="sm in selectedPresetMeta.suggested_models" :key="sm">
+                                                <button type="button" @click="aiProviderForm.model_name = sm"
+                                                    class="px-1.5 py-0.5 rounded text-[10px] font-mono studio-bg-secondary border studio-border hover:border-amber-500"
+                                                    x-text="sm"></button>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <template x-if="remoteFetchedModels.length > 0">
+                                        <select @change="aiProviderForm.model_name = $event.target.value"
+                                            class="w-full mt-1.5 px-2 py-1 rounded studio-bg-secondary border studio-border font-mono text-[10px]">
+                                            <option value=""
+                                                x-text="`-- Pilih dari ${remoteFetchedModels.length} model server --`"></option>
+                                            <template x-for="rm in remoteFetchedModels" :key="rm">
+                                                <option :value="rm" x-text="rm"></option>
+                                            </template>
+                                        </select>
+                                    </template>
+                                </div>
+
+                                <label x-show="runtimeMode !== 'browser'" class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" x-model="aiProviderForm.stop_local_llama" class="rounded" />
+                                    <span class="text-[11px] studio-text-secondary">
+                                        Matikan <code class="font-mono">llama-server</code> lokal otomatis setelah API terverifikasi untuk membebaskan RAM
+                                    </span>
+                                </label>
+
+                                <!-- Opsi Hubungkan ke Backend FastAPI Pribadi (misal Tunnel dari PC/Termux) -->
+                                <div class="pt-2 border-t studio-border space-y-1.5">
+                                    <label class="block font-semibold">🔗 Hubungkan Server Studio Pribadi (Opsional — untuk Mode Lokal / Tunnel)</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <input type="text" x-model="customBackendUrl"
+                                            placeholder="Kosongkan untuk Pure Browser Mode, atau masukkan URL (misal https://novel.domain.com)"
+                                            class="flex-1 px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]" />
+                                        <button type="button" @click="connectCustomBackend()"
+                                            class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border hover:border-amber-500 font-semibold text-[11px]">
+                                            🔌 Hubungkan Server
+                                        </button>
+                                        <button type="button" x-show="customBackendUrl" @click="resetToBrowserMode()"
+                                            class="px-2.5 py-1.5 rounded studio-bg-secondary border studio-border text-[11px]">
+                                            ↩️ Reset Browser Mode
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 7: 4-TIER MEMORY & SQLITE FTS5 BM25 INSPECTOR
+         ================================================================== -->
+    <div x-show="showMemoryInspectorModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="showMemoryInspectorModal = false"
+            class="w-full max-w-4xl rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-3 text-xs max-h-[88vh] flex flex-col">
+            <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                <div>
+                    <h3 class="text-sm font-bold studio-accent-text">
+                        🔍 Inspeksi 4-Tier Memory &amp; SQLite FTS5 BM25 (Beat #<span
+                            x-text="memoryInspectorData ? memoryInspectorData.beat_number : ''"></span>)
+                    </h3>
+                    <template x-if="memoryInspectorData && memoryInspectorData.fts5_telemetry">
+                        <p class="text-[11px] font-mono studio-text-muted mt-0.5"
+                            x-text="`Latensi FTS5: ${memoryInspectorData.fts5_telemetry.elapsed_ms} ms | Codex Hit: ${memoryInspectorData.fts5_telemetry.codex_hits_count} | Memori Episodik: ${memoryInspectorData.fts5_telemetry.episodic_hits_count}`">
+                        </p>
+                    </template>
+                </div>
+                <button @click="showMemoryInspectorModal = false"
+                    class="text-sm opacity-70 hover:opacity-100 px-2">✕</button>
+            </div>
+
+            <template x-if="memoryInspectorData">
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1">
+                    <div class="p-3 rounded-lg studio-bg-secondary border studio-border space-y-1">
+                        <div class="font-bold">Kata Kunci Ekstraksi FTS5 BM25:</div>
+                        <div class="font-mono text-[11px] studio-accent-text"
+                            x-text="(memoryInspectorData.fts5_telemetry.extracted_keywords || []).join(', ') || '-'">
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-lg studio-bg-secondary border studio-border space-y-1">
+                        <div class="font-bold">Static System Prompt (Tier 1 &amp; Tier 2 — KV Prefix Cached):</div>
+                        <pre class="whitespace-pre-wrap font-mono text-[10px] studio-text-secondary max-h-[30vh] overflow-y-auto p-2 rounded studio-bg-primary border studio-border"
+                            x-text="memoryInspectorData.static_system_prompt"></pre>
+                    </div>
+                    <div class="p-3 rounded-lg studio-bg-secondary border studio-border space-y-1">
+                        <div class="font-bold">Dynamic User Prompt (Tier 3 Rolling + FTS5 + 400 Kata Verbatim &amp; Tier
+                            4 Task):</div>
+                        <pre class="whitespace-pre-wrap font-mono text-[10px] studio-text-secondary max-h-[35vh] overflow-y-auto p-2 rounded studio-bg-primary border studio-border"
+                            x-text="memoryInspectorData.dynamic_user_prompt"></pre>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ==================================================================
+         MODAL 8: STUDIO KOMPILASI & EKSPOR NASKAH PENERBIT
+         ================================================================== -->
+    <div x-show="showExportModal" x-cloak
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div @click.away="showExportModal = false"
+            class="w-full max-w-lg rounded-xl studio-bg-elevated border studio-border shadow-2xl p-5 space-y-4 text-xs">
+            <div class="flex items-center justify-between border-b studio-border pb-2.5">
+                <h3 class="text-sm font-bold studio-accent-text">
+                    📤 Studio Ekspor &amp; Kompilasi Penerbit
+                </h3>
+                <button @click="showExportModal = false" class="text-sm opacity-70 hover:opacity-100">✕</button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block font-semibold mb-1.5">Format Keluaran</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" @click="exportOptions.format = 'epub'"
+                            :class="exportOptions.format === 'epub' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-primary studio-border'"
+                            class="p-2.5 rounded-lg border text-left transition">
+                            <div class="font-bold">📘 Ebook (.EPUB)</div>
+                            <div class="text-[10px] opacity-80">Standar penerbit &amp; Kindle/Apple Books</div>
+                        </button>
+                        <button type="button" @click="exportOptions.format = 'print_html'"
+                            :class="exportOptions.format === 'print_html' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-primary studio-border'"
+                            class="p-2.5 rounded-lg border text-left transition">
+                            <div class="font-bold">🖨️ Cetak / Save PDF</div>
+                            <div class="text-[10px] opacity-80">Layout buku A5 siap cetak via Browser</div>
+                        </button>
+                        <button type="button" @click="exportOptions.format = 'markdown'"
+                            :class="exportOptions.format === 'markdown' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-primary studio-border'"
+                            class="p-2.5 rounded-lg border text-left transition">
+                            <div class="font-bold">📄 Novel Penuh (.MD)</div>
+                            <div class="text-[10px] opacity-80">Markdown utuh + lampiran Story Bible</div>
+                        </button>
+                        <button type="button" @click="exportOptions.format = 'chapter_md'"
+                            :class="exportOptions.format === 'chapter_md' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-primary studio-border'"
+                            class="p-2.5 rounded-lg border text-left transition">
+                            <div class="font-bold">📝 Bab Aktif (.MD)</div>
+                            <div class="text-[10px] opacity-80">Ekspor cepat bab yang sedang dibuka</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div x-show="exportOptions.format !== 'chapter_md'" class="space-y-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Nama Penulis / Nama Pena pada Sampul &amp; Metadata</label>
+                        <input type="text" x-model="exportOptions.author_name" placeholder="Nama Penulis..."
+                            class="w-full px-2.5 py-1.5 rounded studio-bg-primary border studio-border" />
+                    </div>
+
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="exportOptions.approved_only" class="rounded" />
+                        <span class="studio-text-secondary">
+                            Hanya sertakan adegan berstatus <strong>Draf Selesai / Final</strong> (lewati catatan Rencana/Pending)
+                        </span>
+                    </label>
+
+                    <label x-show="exportOptions.format === 'epub' || exportOptions.format === 'print_html'"
+                        class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="exportOptions.include_synopsis" class="rounded" />
+                        <span class="studio-text-secondary">Sertakan halaman Sinopsis &amp; Visi Cerita di awal buku</span>
+                    </label>
+
+                    <label x-show="exportOptions.format === 'markdown'"
+                        class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="exportOptions.include_codex_appendix" class="rounded" />
+                        <span class="studio-text-secondary">Sertakan Lampiran Codex &amp; Story Bible di akhir Markdown</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t studio-border">
+                <button @click="showExportModal = false"
+                    class="px-3 py-1.5 rounded studio-bg-secondary border studio-border">
+                    Batal
+                </button>
+                <button @click="executeExport()" class="px-4 py-1.5 rounded font-bold studio-accent-bg text-white">
+                    🚀 Kompilasi &amp; Unduh
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

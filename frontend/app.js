@@ -13,8 +13,10 @@
 
 function novelStudioApp() {
     return {
-        // Konfigurasi URL API (Otomatis menyesuaikan origin saat dibuka dari localhost atau Wi-Fi LAN)
-        apiBase: window.NOVEL_API_BASE || "",
+        // Konfigurasi URL API & Mode Runtime ('fastapi' vs 'browser' untuk GitHub Pages)
+        apiBase: window.NOVEL_API_BASE || localStorage.getItem("zen_custom_backend_url") || "",
+        runtimeMode: "detecting", // 'fastapi' | 'browser'
+        customBackendUrl: localStorage.getItem("zen_custom_backend_url") || "",
 
         // Tema & Mode Layar
         darkMode: localStorage.getItem("zen_novel_theme") === "dark",
@@ -272,18 +274,99 @@ function novelStudioApp() {
         // ====================================================================
         // LIFECYCLE INITIALIZATION
         // ====================================================================
+        async detectBackendMode() {
+            const customUrl = (this.customBackendUrl || "").trim().replace(/\/+$/, "");
+            const host = ((window.location && window.location.hostname) || "").toLowerCase();
+            const proto = (window.location && window.location.protocol) || "";
+            const isStaticHost =
+                proto === "file:" ||
+                host.endsWith(".github.io") ||
+                host.endsWith(".pages.dev") ||
+                host.endsWith(".netlify.app");
+
+            if (!customUrl && isStaticHost) {
+                this.runtimeMode = "browser";
+                this.apiBase = "";
+                this.modelModalTab = "online";
+                return;
+            }
+
+            const probeBase = customUrl || (window.NOVEL_API_BASE || "");
+            try {
+                const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+                const tid = ctrl ? setTimeout(() => ctrl.abort(), 1600) : null;
+                const resp = await fetch(`${probeBase}/api/system/health`, {
+                    signal: ctrl ? ctrl.signal : undefined,
+                    cache: "no-store",
+                });
+                if (tid) clearTimeout(tid);
+                const ctype = (resp.headers.get("content-type") || "").toLowerCase();
+                if (resp.ok && ctype.includes("application/json")) {
+                    const data = await resp.json();
+                    if (data && data.status === "ok" && "ai_provider" in data) {
+                        this.apiBase = probeBase;
+                        this.runtimeMode = "fastapi";
+                        return;
+                    }
+                }
+            } catch (_) {
+                // Backend tidak aktif -> beralih otomatis ke Pure Browser Mode
+            }
+            this.runtimeMode = "browser";
+            this.apiBase = "";
+            this.modelModalTab = "online";
+        },
+
+        async connectCustomBackend() {
+            const cleanUrl = (this.customBackendUrl || "").trim().replace(/\/+$/, "");
+            if (!cleanUrl || !/^https?:\/\//i.test(cleanUrl)) {
+                this.notify("Masukkan URL Server Studio diawali http:// atau https://.", "warning");
+                return;
+            }
+            localStorage.setItem("zen_custom_backend_url", cleanUrl);
+            this.customBackendUrl = cleanUrl;
+            await this.detectBackendMode();
+            if (this.runtimeMode === "fastapi") {
+                await Promise.all([
+                    this.fetchSystemHealth(),
+                    this.loadModelsStatus(),
+                    this.loadAiProviderConfig(),
+                    this.loadProjects(),
+                ]);
+                this.notify(`Terhubung ke Server Studio: ${cleanUrl}`, "success");
+            } else {
+                localStorage.removeItem("zen_custom_backend_url");
+                this.notify(`Server ${cleanUrl} tidak merespons. Tetap menggunakan Browser Mode.`, "error");
+            }
+        },
+
+        async resetToBrowserMode() {
+            localStorage.removeItem("zen_custom_backend_url");
+            this.customBackendUrl = "";
+            this.runtimeMode = "browser";
+            this.apiBase = "";
+            await Promise.all([
+                this.fetchSystemHealth(),
+                this.loadModelsStatus(),
+                this.loadAiProviderConfig(),
+                this.loadProjects(),
+            ]);
+            this.notify("Beralih ke Pure Browser Mode (penyimpanan browser lokal).", "info");
+        },
+
         async init() {
             this.applyTheme();
             this.loadDailyWordTracker();
+            await this.detectBackendMode();
             await Promise.all([this.fetchSystemHealth(), this.loadModelsStatus(), this.loadAiProviderConfig()]);
             this.ramPollTimer = setInterval(() => {
-                if (!document.hidden) {
+                if (!document.hidden && this.runtimeMode === "fastapi") {
                     this.fetchSystemHealth();
                 }
             }, 5000);
 
             document.addEventListener("visibilitychange", () => {
-                if (!document.hidden) {
+                if (!document.hidden && this.runtimeMode === "fastapi") {
                     this.fetchSystemHealth();
                 }
             });
@@ -389,6 +472,9 @@ function novelStudioApp() {
         },
 
         async apiRequest(path, options = {}) {
+            if (this.runtimeMode === "browser" && window.ZenWebRuntime) {
+                return await window.ZenWebRuntime.handleApiRequest(path, options);
+            }
             const headers = {
                 "Content-Type": "application/json",
                 ...(options.headers || {}),
@@ -1364,7 +1450,10 @@ function novelStudioApp() {
 
             // Simpan instruksi beat terkini secara senyap sebelum mulai streaming
             await this.saveBeatMetadata(beat, true);
-            this.streamStatusLabel = "⏳ Menghubungkan ke Single-Slot AI (Port 8080)...";
+            this.streamStatusLabel =
+                this.runtimeMode === "browser"
+                    ? "⏳ Menghubungkan langsung ke API AI..."
+                    : "⏳ Menghubungkan ke AI Engine...";
 
             const beatIndex = this.beats.findIndex((b) => b.id === beat.id);
             if (beatIndex !== -1) {
@@ -1373,20 +1462,24 @@ function novelStudioApp() {
             }
 
             try {
-                const response = await fetch(`${this.apiBase}/api/beats/${beat.id}/stream`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        endpoint_mode: this.samplerConfig.endpoint_mode,
-                        temperature: this._numOr(this.samplerConfig.temperature, 0.75),
-                        min_p: this._numOr(this.samplerConfig.min_p, 0.06),
-                        dry_multiplier: this._numOr(this.samplerConfig.dry_multiplier, 0.50),
-                        xtc_probability: this._numOr(this.samplerConfig.xtc_probability, 0.0),
-                        additional_author_note: this.samplerConfig.additional_author_note || "",
-                        save_on_complete: true,
-                    }),
-                    signal: this.streamAbortController.signal,
-                });
+                const streamPayload = {
+                    endpoint_mode: this.samplerConfig.endpoint_mode,
+                    temperature: this._numOr(this.samplerConfig.temperature, 0.75),
+                    min_p: this._numOr(this.samplerConfig.min_p, 0.06),
+                    dry_multiplier: this._numOr(this.samplerConfig.dry_multiplier, 0.50),
+                    xtc_probability: this._numOr(this.samplerConfig.xtc_probability, 0.0),
+                    additional_author_note: this.samplerConfig.additional_author_note || "",
+                    save_on_complete: true,
+                };
+                const response =
+                    this.runtimeMode === "browser" && window.ZenWebRuntime
+                        ? await window.ZenWebRuntime.streamBeat(beat.id, streamPayload, this.streamAbortController.signal)
+                        : await fetch(`${this.apiBase}/api/beats/${beat.id}/stream`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify(streamPayload),
+                              signal: this.streamAbortController.signal,
+                          });
 
                 if (!response.ok || !response.body) {
                     throw new Error(`HTTP ${response.status} saat membuka SSE stream.`);
@@ -1573,6 +1666,11 @@ function novelStudioApp() {
 
         downloadProjectBackup() {
             if (!this.activeProjectId) return;
+            if (this.runtimeMode === "browser" && window.ZenWebRuntime) {
+                window.ZenWebRuntime.triggerBackupDownload(this.activeProjectId);
+                this.notify("Mengunduh cadangan proyek lengkap (.json)...", "info");
+                return;
+            }
             window.open(`${this.apiBase}/api/projects/${encodeURIComponent(this.activeProjectId)}/backup`, "_blank", "noopener");
             this.notify("Mengunduh cadangan proyek lengkap (.json)...", "info");
         },
@@ -1748,6 +1846,12 @@ function novelStudioApp() {
             } else {
                 params.set("include_synopsis", String(Boolean(this.exportOptions.include_synopsis)));
             }
+            if (this.runtimeMode === "browser" && window.ZenWebRuntime) {
+                window.ZenWebRuntime.triggerExport(this.activeProjectId, pathSeg, params);
+                this.showExportModal = false;
+                this.notify("Naskah berhasil dikompilasi & diunduh di browser!", "success");
+                return;
+            }
             const url = `${this.apiBase}/api/projects/${encodeURIComponent(this.activeProjectId)}/export/${pathSeg}?${params.toString()}`;
             window.open(url, "_blank", "noopener");
             this.showExportModal = false;
@@ -1778,10 +1882,13 @@ function novelStudioApp() {
         async openModelManager() {
             this.showModelModal = true;
             await Promise.all([this.loadModelsStatus(), this.loadAiProviderConfig()]);
-            if (this.aiProviderSummary?.provider_type && this.aiProviderSummary.provider_type !== "local_llama") {
+            if (
+                this.runtimeMode === "browser" ||
+                (this.aiProviderSummary?.provider_type && this.aiProviderSummary.provider_type !== "local_llama")
+            ) {
                 this.modelModalTab = "online";
             }
-            if (!this.modelPollTimer) {
+            if (!this.modelPollTimer && this.runtimeMode === "fastapi") {
                 this.modelPollTimer = setInterval(() => {
                     if (this.showModelModal && !document.hidden) {
                         this.loadModelsStatus();
@@ -1952,6 +2059,9 @@ function novelStudioApp() {
                     return `AI: ${this.systemHealth.active_model_filename.replace(/\.gguf$/i, "")}`;
                 }
                 return "llama-server:8080 READY";
+            }
+            if (this.runtimeMode === "browser") {
+                return "🌐 Pilih AI & API Key";
             }
             return "Model AI OFFLINE • Pilih";
         },
@@ -2135,9 +2245,11 @@ function novelStudioApp() {
                 this.providerTestResult = null;
                 await Promise.all([this.fetchSystemHealth(), this.loadModelsStatus(), this.loadAiProviderConfig()]);
                 this.notify(
-                    clearApiKey
-                        ? "API Key dihapus & Studio kembali ke Mode Lokal (llama-server GGUF)."
-                        : "Beralih kembali ke mode Mesin Lokal (llama-server GGUF).",
+                    this.runtimeMode === "browser"
+                        ? (clearApiKey ? "API Key dihapus dari penyimpanan browser." : "API Eksternal dinonaktifkan di Browser Mode.")
+                        : (clearApiKey
+                            ? "API Key dihapus & Studio kembali ke Mode Lokal (llama-server GGUF)."
+                            : "Beralih kembali ke mode Mesin Lokal (llama-server GGUF)."),
                     "info"
                 );
             } catch (err) {
