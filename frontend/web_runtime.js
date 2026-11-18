@@ -138,6 +138,56 @@
             notes: "Deteksi otomatis token hf_ menggunakan HuggingFace Inference Router.",
         },
         {
+            preset_id: "cerebras",
+            label: "Cerebras Cloud",
+            provider_type: "openai_compatible",
+            base_url: "https://api.cerebras.ai/v1",
+            default_model: "",
+            suggested_models: [],
+            requires_api_key: true,
+            notes: "Deteksi otomatis via awalan csk-.",
+        },
+        {
+            preset_id: "together",
+            label: "Together AI",
+            provider_type: "openai_compatible",
+            base_url: "https://api.together.xyz/v1",
+            default_model: "",
+            suggested_models: [],
+            requires_api_key: true,
+            notes: "Deteksi otomatis via awalan tgp_v1_.",
+        },
+        {
+            preset_id: "fireworks",
+            label: "Fireworks AI",
+            provider_type: "openai_compatible",
+            base_url: "https://api.fireworks.ai/inference/v1",
+            default_model: "",
+            suggested_models: [],
+            requires_api_key: true,
+            notes: "Deteksi otomatis via awalan fw_.",
+        },
+        {
+            preset_id: "nvidia_nim",
+            label: "NVIDIA NIM API",
+            provider_type: "openai_compatible",
+            base_url: "https://integrate.api.nvidia.com/v1",
+            default_model: "",
+            suggested_models: [],
+            requires_api_key: true,
+            notes: "Deteksi otomatis via awalan nvapi-.",
+        },
+        {
+            preset_id: "github_models",
+            label: "GitHub Models",
+            provider_type: "openai_compatible",
+            base_url: "https://models.github.ai/inference",
+            default_model: "",
+            suggested_models: [],
+            requires_api_key: true,
+            notes: "Deteksi otomatis token GitHub (ghp_ / github_pat_).",
+        },
+        {
             preset_id: "ollama",
             label: "Ollama (Lokal / Server Wi-Fi LAN)",
             provider_type: "openai_compatible",
@@ -162,14 +212,56 @@
     const PRESET_MAP = Object.fromEntries(PROVIDER_PRESETS.map((p) => [p.preset_id, p]));
     const GENERIC_KEY_PROBE_ORDER = ["openrouter", "gemini", "groq", "openai", "mistral", "anthropic", "deepseek", "xai"];
 
+    function sanitizeApiKey(raw) {
+        let k = String(raw || "").trim();
+        if (!k) return "";
+        if ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'"))) {
+            k = k.slice(1, -1).trim();
+        }
+        if (/^[A-Z][A-Z0-9_]{2,40}\s*=\s*/.test(k)) {
+            k = k.replace(/^[A-Z][A-Z0-9_]{2,40}\s*=\s*/, "").trim().replace(/^['"]|['"]$/g, "").trim();
+        }
+        if (k.toLowerCase().startsWith("authorization:")) {
+            k = k.slice("authorization:".length).trim();
+        }
+        if (k.toLowerCase().startsWith("bearer ")) {
+            k = k.slice(7).trim();
+        }
+        return k.replace(/\s+/g, "");
+    }
+
+    function isLocalEndpointUrl(rawUrl) {
+        try {
+            const parsed = new URL(String(rawUrl || "").trim());
+            const host = (parsed.hostname || "").toLowerCase();
+            if (!host) return false;
+            if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0" || host.endsWith(".local")) {
+                return true;
+            }
+            if (host.startsWith("192.168.") || host.startsWith("10.")) return true;
+            if (host.startsWith("172.")) {
+                const seg = Number(host.split(".")[1]);
+                if (seg >= 16 && seg <= 31) return true;
+            }
+            return false;
+        } catch (_) {
+            return false;
+        }
+    }
+
     function classifyApiKeyProviders(apiKey) {
-        const key = String(apiKey || "").trim();
+        const key = sanitizeApiKey(apiKey);
         if (!key) return { candidates: ["ollama", "custom_openai"], highConf: false };
         if (key.startsWith("AIza")) return { candidates: ["gemini"], highConf: true };
         if (key.startsWith("sk-or-")) return { candidates: ["openrouter"], highConf: true };
         if (key.startsWith("sk-ant-")) return { candidates: ["anthropic"], highConf: true };
         if (key.startsWith("gsk_")) return { candidates: ["groq"], highConf: true };
         if (key.startsWith("xai-")) return { candidates: ["xai"], highConf: true };
+        if (key.startsWith("csk-")) return { candidates: ["cerebras"], highConf: true };
+        if (key.startsWith("tgp_v1_")) return { candidates: ["together"], highConf: true };
+        if (key.startsWith("fw_")) return { candidates: ["fireworks"], highConf: true };
+        if (key.startsWith("nvapi-")) return { candidates: ["nvidia_nim"], highConf: true };
+        if (key.startsWith("ghp_") || key.startsWith("github_pat_")) return { candidates: ["github_models"], highConf: true };
         if (key.startsWith("sk-proj-") || key.startsWith("sk-svcacct-")) return { candidates: ["openai"], highConf: true };
         if (key.startsWith("hf_")) return { candidates: ["huggingface_router"], highConf: true };
         if (key.startsWith("sk-")) return { candidates: ["openai", "openrouter", "deepseek"], highConf: false };
@@ -236,7 +328,12 @@
             if (!raw) return base;
             const saved = JSON.parse(raw);
             if (saved && typeof saved === "object") {
-                return { ...base, ...saved };
+                const merged = { ...base, ...saved };
+                merged.api_key = sanitizeApiKey(merged.api_key);
+                if (merged.provider_type !== "local_llama" && !isLocalEndpointUrl(merged.base_url) && !merged.api_key) {
+                    return base;
+                }
+                return merged;
             }
         } catch (_) {
             // Abaikan JSON rusak
@@ -280,11 +377,15 @@
 
     function buildChatRequest(cfg, systemPrompt, userPrompt, maxTokens = 800, temperature = 0.75, stream = true) {
         const ptype = String(cfg.provider_type || "").toLowerCase();
-        const apiKey = String(cfg.api_key || "").trim();
+        const apiKey = sanitizeApiKey(cfg.api_key);
         const headers = { "Content-Type": "application/json" };
 
         if (ptype === "anthropic") {
-            const url = _buildAnthropicUrl(cfg.base_url || "https://api.anthropic.com/v1", "/messages");
+            const baseAnt = cfg.base_url || "https://api.anthropic.com/v1";
+            if (!apiKey && !isLocalEndpointUrl(baseAnt)) {
+                throw new Error("API Key kosong (Missing Auth Header). Tempel API Key Anthropic Anda pada pengelola AI.");
+            }
+            const url = _buildAnthropicUrl(baseAnt, "/messages");
             if (apiKey) headers["x-api-key"] = apiKey;
             headers["anthropic-version"] = "2023-06-01";
             headers["anthropic-dangerous-direct-browser-access"] = "true";
@@ -303,6 +404,9 @@
         }
 
         const baseUrl = cfg.base_url || "https://api.openai.com/v1";
+        if (!apiKey && !isLocalEndpointUrl(baseUrl)) {
+            throw new Error(`API Key kosong untuk ${baseUrl} (Missing Auth Header). Tempel API Key Anda di pengelola AI.`);
+        }
         const url = _buildOpenAiUrl(baseUrl, "/chat/completions");
         if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
         if (baseUrl.toLowerCase().includes("openrouter.ai")) {
@@ -437,8 +541,11 @@
 
     async function fetchRemoteModels(providerType, baseUrl, apiKey) {
         const cleanUrl = normalizeBaseUrl(baseUrl);
-        const key = String(apiKey || "").trim();
+        const key = sanitizeApiKey(apiKey);
         const ptype = String(providerType || "openai_compatible").toLowerCase();
+        if (!key && !isLocalEndpointUrl(cleanUrl)) {
+            throw new Error(`API Key wajib diisi untuk mengambil daftar model dari ${cleanUrl}.`);
+        }
 
         // Google Gemini native /v1beta/models -> filter ketat `supportedGenerationMethods` berisi `generateContent`
         if (cleanUrl.toLowerCase().includes("generativelanguage.googleapis.com")) {
@@ -626,7 +733,7 @@
     }
 
     async function autoDetectAndProbe(apiKey, explicitModel = "") {
-        const cleanKey = String(apiKey || "").trim();
+        const cleanKey = sanitizeApiKey(apiKey);
         if (!cleanKey) {
             for (const localPid of ["ollama", "custom_openai"]) {
                 const meta = PRESET_MAP[localPid];
@@ -684,10 +791,10 @@
         let explicitModel = String(updates.model_name || "").trim();
         if (explicitModel.toLowerCase() === "auto") explicitModel = "";
         const rawBaseUrl = String(updates.base_url || "").trim();
-        const rawApiKey = updates.clear_api_key ? "" : String(updates.api_key || "").trim();
+        const rawApiKey = updates.clear_api_key ? "" : sanitizeApiKey(updates.api_key);
 
         if (ptype === "auto" && !rawBaseUrl) {
-            const effectiveKey = rawApiKey || (current.provider_type !== "local_llama" ? String(current.api_key || "") : "");
+            const effectiveKey = rawApiKey || (current.provider_type !== "local_llama" ? sanitizeApiKey(current.api_key) : "");
             const { detectedUpdates, probeResult } = await autoDetectAndProbe(effectiveKey, explicitModel);
             const nextCfg = {
                 ...detectedUpdates,
@@ -714,10 +821,10 @@
         } else if (rawApiKey) {
             apiKey = rawApiKey;
         } else if (sameTarget) {
-            apiKey = String(current.api_key || "");
+            apiKey = sanitizeApiKey(current.api_key);
         }
 
-        if (presetMeta.requires_api_key && !apiKey) {
+        if ((presetMeta.requires_api_key || !isLocalEndpointUrl(baseUrl)) && !apiKey) {
             throw new Error(`API Key wajib diisi untuk ${displayName}.`);
         }
 
@@ -1852,9 +1959,7 @@ ${chHtml}
             const rawPtype = String(body.provider_type || "auto").trim().toLowerCase();
             const rawBase = String(body.base_url || "").trim();
             if (rawPtype === "auto" && !rawBase) {
-                const key = body.api_key && String(body.api_key).trim()
-                    ? String(body.api_key).trim()
-                    : (current.provider_type !== "local_llama" ? current.api_key : "");
+                const key = sanitizeApiKey(body.api_key) || (current.provider_type !== "local_llama" ? sanitizeApiKey(current.api_key) : "");
                 const { probeResult } = await autoDetectAndProbe(key, body.model_name || "");
                 return probeResult;
             }
@@ -1864,9 +1969,9 @@ ${chHtml}
             const presetMeta = PRESET_MAP[body.preset_id] || {};
             const baseUrl = normalizeBaseUrl(rawBase || presetMeta.base_url || current.base_url);
             const sameTarget = body.preset_id === current.preset_id && baseUrl === String(current.base_url || "").replace(/\/+$/, "");
-            const apiKey = body.api_key && String(body.api_key).trim() ? String(body.api_key).trim() : (sameTarget ? current.api_key : "");
-            if (presetMeta.requires_api_key && !apiKey) {
-                throw new Error(`Masukkan API Key untuk ${presetMeta.label || body.preset_id} terlebih dahulu.`);
+            const apiKey = sanitizeApiKey(body.api_key) || (sameTarget ? sanitizeApiKey(current.api_key) : "");
+            if ((presetMeta.requires_api_key || !isLocalEndpointUrl(baseUrl)) && !apiKey) {
+                throw new Error(`Masukkan API Key untuk ${presetMeta.label || baseUrl} terlebih dahulu.`);
             }
             const { probeResult } = await pickAndProbeCandidates(
                 { provider_type: effectivePtype, preset_id: body.preset_id, base_url: baseUrl, api_key: apiKey },
@@ -1876,8 +1981,10 @@ ${chHtml}
         }
         if (pathname === "/api/ai/provider/models" && method === "POST") {
             const current = loadProviderConfig();
-            const key = body.api_key && String(body.api_key).trim() ? String(body.api_key).trim() : current.api_key;
-            const models = await fetchRemoteModels(body.provider_type, body.base_url, key);
+            const normTarget = normalizeBaseUrl(body.base_url || current.base_url);
+            const sameTarget = normTarget === String(current.base_url || "").replace(/\/+$/, "");
+            const key = sanitizeApiKey(body.api_key) || (sameTarget ? sanitizeApiKey(current.api_key) : "");
+            const models = await fetchRemoteModels(body.provider_type, normTarget, key);
             return { count: models.length, models };
         }
 

@@ -2070,14 +2070,56 @@ function novelStudioApp() {
             return (this.aiProviderPresets || []).find((p) => p.preset_id === this.aiProviderForm.preset_id) || null;
         },
 
+        _sanitizeClientKey(raw) {
+            let k = String(raw || "").trim();
+            if (!k) return "";
+            if ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'"))) {
+                k = k.slice(1, -1).trim();
+            }
+            if (/^[A-Z][A-Z0-9_]{2,40}\s*=\s*/.test(k)) {
+                k = k.replace(/^[A-Z][A-Z0-9_]{2,40}\s*=\s*/, "").trim().replace(/^['"]|['"]$/g, "").trim();
+            }
+            if (k.toLowerCase().startsWith("authorization:")) {
+                k = k.slice("authorization:".length).trim();
+            }
+            if (k.toLowerCase().startsWith("bearer ")) {
+                k = k.slice(7).trim();
+            }
+            return k.replace(/\s+/g, "");
+        },
+
+        _isLocalEndpointUrl(rawUrl) {
+            try {
+                const parsed = new URL(String(rawUrl || "").trim());
+                const host = (parsed.hostname || "").toLowerCase();
+                if (!host) return false;
+                if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0" || host.endsWith(".local")) {
+                    return true;
+                }
+                if (host.startsWith("192.168.") || host.startsWith("10.")) return true;
+                if (host.startsWith("172.")) {
+                    const seg = Number(host.split(".")[1]);
+                    if (seg >= 16 && seg <= 31) return true;
+                }
+                return false;
+            } catch (_) {
+                return false;
+            }
+        },
+
         get detectedKeyHint() {
-            const k = (this.aiProviderForm.api_key || "").trim();
+            const k = this._sanitizeClientKey(this.aiProviderForm.api_key);
             if (!k) return "";
             if (k.startsWith("AIza")) return "🔎 Terdeteksi otomatis: Google Gemini (AI Studio)";
             if (k.startsWith("sk-or-")) return "🔎 Terdeteksi otomatis: OpenRouter";
             if (k.startsWith("sk-ant-")) return "🔎 Terdeteksi otomatis: Anthropic Claude";
             if (k.startsWith("gsk_")) return "🔎 Terdeteksi otomatis: Groq Cloud";
             if (k.startsWith("xai-")) return "🔎 Terdeteksi otomatis: xAI (Grok API)";
+            if (k.startsWith("csk-")) return "🔎 Terdeteksi otomatis: Cerebras Cloud";
+            if (k.startsWith("tgp_v1_")) return "🔎 Terdeteksi otomatis: Together AI";
+            if (k.startsWith("fw_")) return "🔎 Terdeteksi otomatis: Fireworks AI";
+            if (k.startsWith("nvapi-")) return "🔎 Terdeteksi otomatis: NVIDIA NIM API";
+            if (k.startsWith("ghp_") || k.startsWith("github_pat_")) return "🔎 Terdeteksi otomatis: GitHub Models";
             if (k.startsWith("hf_")) return "🔎 Terdeteksi otomatis: HuggingFace Inference Router";
             if (k.startsWith("sk-proj-") || k.startsWith("sk-svcacct-")) return "🔎 Terdeteksi otomatis: OpenAI (ChatGPT API)";
             if (k.startsWith("sk-")) return "🔎 Terdeteksi: Format kunci sk- (Auto-Probe OpenAI / DeepSeek / OpenRouter)";
@@ -2140,25 +2182,25 @@ function novelStudioApp() {
         },
 
         _validateProviderInputs() {
-            const hasTypedKey = Boolean((this.aiProviderForm.api_key || "").trim());
+            const hasTypedKey = Boolean(this._sanitizeClientKey(this.aiProviderForm.api_key));
             const normalizedUrl = (this.aiProviderForm.base_url || "").trim().replace(/\/+$/, "");
 
-            // Jika URL diisi eksplisit di Pengaturan Lanjutan (mis. Ollama / LM Studio)
+            // Jika URL diisi eksplisit di Pengaturan Lanjutan (mis. Ollama / LM Studio vs cloud kustom)
             if (normalizedUrl) {
                 const meta = this.selectedPresetMeta;
-                const needsKey = meta ? Boolean(meta.requires_api_key) : false;
+                const needsKey = meta ? Boolean(meta.requires_api_key) : !this._isLocalEndpointUrl(normalizedUrl);
                 const savedBase = (this.aiProviderSummary?.base_url || "").trim().replace(/\/+$/, "");
                 const hasSavedSameKey = Boolean(
                     this.aiProviderSummary?.has_api_key &&
                     savedBase === normalizedUrl
                 );
-                if (needsKey && !hasTypedKey && !hasSavedSameKey) {
-                    return `Masukkan API Key untuk ${this.aiProviderForm.display_name || this.aiProviderForm.preset_id} terlebih dahulu.`;
+                if ((needsKey || !this._isLocalEndpointUrl(normalizedUrl)) && !hasTypedKey && !hasSavedSameKey) {
+                    return `Masukkan API Key untuk ${this.aiProviderForm.display_name || normalizedUrl} terlebih dahulu.`;
                 }
                 return null;
             }
 
-            // Mode Universal Auto-Detect: cukup ada API Key (baru atau tersimpan), atau user tidak isi key jika mau scan Ollama lokal
+            // Mode Universal Auto-Detect: cukup ada API Key (baru atau tersimpan)
             if (!hasTypedKey && !this.aiProviderSummary?.has_api_key) {
                 return "Tempel API Key AI Anda di kotak di atas (Gemini, OpenRouter, Groq, OpenAI, Claude, DeepSeek, Mistral, dll.).";
             }
@@ -2183,7 +2225,7 @@ function novelStudioApp() {
                     body: JSON.stringify({
                         provider_type: ptype,
                         base_url: url,
-                        api_key: this.aiProviderForm.api_key || null,
+                        api_key: this._sanitizeClientKey(this.aiProviderForm.api_key) || null,
                     }),
                 });
                 this.remoteFetchedModels = res.models || [];
@@ -2217,7 +2259,7 @@ function novelStudioApp() {
                         display_name: hasCustomUrl ? this.aiProviderForm.display_name : "Auto-Detect API Key",
                         base_url: (this.aiProviderForm.base_url || "").trim(),
                         model_name: (this.aiProviderForm.model_name || "").trim(),
-                        api_key: this.aiProviderForm.api_key || null,
+                        api_key: this._sanitizeClientKey(this.aiProviderForm.api_key) || null,
                     }),
                 });
                 this.providerTestResult = {
@@ -2256,7 +2298,7 @@ function novelStudioApp() {
                         display_name: hasCustomUrl ? (this.aiProviderForm.display_name || this.aiProviderForm.preset_id) : "Auto-Detect API Key",
                         base_url: (this.aiProviderForm.base_url || "").trim(),
                         model_name: (this.aiProviderForm.model_name || "").trim(),
-                        api_key: this.aiProviderForm.api_key || null,
+                        api_key: this._sanitizeClientKey(this.aiProviderForm.api_key) || null,
                         clear_api_key: false,
                         verify_connection: true,
                         stop_local_llama: Boolean(this.aiProviderForm.stop_local_llama),

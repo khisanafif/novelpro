@@ -145,6 +145,56 @@ PROVIDER_PRESETS: List[Dict[str, Any]] = [
         "notes": "Deteksi otomatis token hf_ menggunakan HuggingFace Inference Router.",
     },
     {
+        "preset_id": "cerebras",
+        "label": "Cerebras Cloud",
+        "provider_type": "openai_compatible",
+        "base_url": "https://api.cerebras.ai/v1",
+        "default_model": "",
+        "suggested_models": [],
+        "requires_api_key": True,
+        "notes": "Deteksi otomatis via awalan csk-.",
+    },
+    {
+        "preset_id": "together",
+        "label": "Together AI",
+        "provider_type": "openai_compatible",
+        "base_url": "https://api.together.xyz/v1",
+        "default_model": "",
+        "suggested_models": [],
+        "requires_api_key": True,
+        "notes": "Deteksi otomatis via awalan tgp_v1_.",
+    },
+    {
+        "preset_id": "fireworks",
+        "label": "Fireworks AI",
+        "provider_type": "openai_compatible",
+        "base_url": "https://api.fireworks.ai/inference/v1",
+        "default_model": "",
+        "suggested_models": [],
+        "requires_api_key": True,
+        "notes": "Deteksi otomatis via awalan fw_.",
+    },
+    {
+        "preset_id": "nvidia_nim",
+        "label": "NVIDIA NIM API",
+        "provider_type": "openai_compatible",
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "default_model": "",
+        "suggested_models": [],
+        "requires_api_key": True,
+        "notes": "Deteksi otomatis via awalan nvapi-.",
+    },
+    {
+        "preset_id": "github_models",
+        "label": "GitHub Models",
+        "provider_type": "openai_compatible",
+        "base_url": "https://models.github.ai/inference",
+        "default_model": "",
+        "suggested_models": [],
+        "requires_api_key": True,
+        "notes": "Deteksi otomatis token GitHub (ghp_ / github_pat_).",
+    },
+    {
         "preset_id": "ollama",
         "label": "Ollama (Lokal / Server Wi-Fi LAN)",
         "provider_type": "openai_compatible",
@@ -184,12 +234,48 @@ _GENERIC_KEY_PROBE_ORDER: List[str] = [
 ]
 
 
+def sanitize_api_key(raw: Any) -> str:
+    """Membersihkan tanda kutip, spasi/baris baru, `ENV_KEY=`, atau prefiks `Bearer ` bila user tidak sengaja menempelkannya."""
+    k = str(raw or "").strip()
+    if not k:
+        return ""
+    if (k.startswith('"') and k.endswith('"')) or (k.startswith("'") and k.endswith("'")):
+        k = k[1:-1].strip()
+    if re.match(r"^[A-Z][A-Z0-9_]{2,40}\s*=\s*", k):
+        k = re.sub(r"^[A-Z][A-Z0-9_]{2,40}\s*=\s*", "", k).strip().strip('"').strip("'").strip()
+    if k.lower().startswith("authorization:"):
+        k = k[len("authorization:") :].strip()
+    if k.lower().startswith("bearer "):
+        k = k[7:].strip()
+    return "".join(k.split())
+
+
+def is_local_endpoint_url(raw_url: str) -> bool:
+    """Mengembalikan True jika URL mengarah ke loopback/LAN lokal (Ollama, LM Studio, llama.cpp)."""
+    try:
+        parsed = urlparse((raw_url or "").strip())
+        host = (parsed.hostname or "").lower()
+    except Exception:
+        return False
+    if not host:
+        return False
+    if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") or host.endswith(".local"):
+        return True
+    if host.startswith("192.168.") or host.startswith("10."):
+        return True
+    if host.startswith("172."):
+        parts = host.split(".")
+        if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+            return True
+    return False
+
+
 def classify_api_key_providers(api_key: str) -> Tuple[List[str], bool]:
     """
     Mendeteksi kandidat provider dari format/prefix API Key pengguna.
     Mengembalikan `(ordered_preset_ids, is_high_confidence_signature)`.
     """
-    key = (api_key or "").strip()
+    key = sanitize_api_key(api_key)
     if not key:
         return ["ollama", "custom_openai"], False
     if key.startswith("AIza"):
@@ -202,6 +288,16 @@ def classify_api_key_providers(api_key: str) -> Tuple[List[str], bool]:
         return ["groq"], True
     if key.startswith("xai-"):
         return ["xai"], True
+    if key.startswith("csk-"):
+        return ["cerebras"], True
+    if key.startswith("tgp_v1_"):
+        return ["together"], True
+    if key.startswith("fw_"):
+        return ["fireworks"], True
+    if key.startswith("nvapi-"):
+        return ["nvidia_nim"], True
+    if key.startswith("ghp_") or key.startswith("github_pat_"):
+        return ["github_models"], True
     if key.startswith("sk-proj-") or key.startswith("sk-svcacct-"):
         return ["openai"], True
     if key.startswith("hf_"):
@@ -294,10 +390,15 @@ def load_provider_config(local_llama_url: str = "http://127.0.0.1:8080") -> Dict
     if os.environ.get("NOVEL_AI_MODEL", "").strip():
         cfg["model_name"] = os.environ["NOVEL_AI_MODEL"].strip()
     if os.environ.get("NOVEL_AI_API_KEY", "").strip():
-        cfg["api_key"] = os.environ["NOVEL_AI_API_KEY"].strip()
+        cfg["api_key"] = sanitize_api_key(os.environ["NOVEL_AI_API_KEY"])
 
     if cfg.get("provider_type") == "local_llama":
         cfg["base_url"] = local_llama_url.rstrip("/")
+    else:
+        cfg["api_key"] = sanitize_api_key(cfg.get("api_key"))
+        # Self-heal jika file config lama menyimpan provider cloud publik tanpa API key
+        if not is_local_endpoint_url(str(cfg.get("base_url") or "")) and not cfg["api_key"]:
+            return default_provider_config(local_llama_url=local_llama_url)
 
     return cfg
 
@@ -345,14 +446,14 @@ def save_provider_config(
     )
     if clear_key:
         api_key = ""
-    elif "api_key" in updates and updates["api_key"] is not None and str(updates["api_key"]).strip():
-        api_key = str(updates["api_key"]).strip()
+    elif "api_key" in updates and updates["api_key"] is not None and sanitize_api_key(updates["api_key"]):
+        api_key = sanitize_api_key(updates["api_key"])
     elif same_provider_target:
-        api_key = str(current.get("api_key") or "")
+        api_key = sanitize_api_key(current.get("api_key"))
     else:
         api_key = ""
 
-    if ptype != "local_llama" and preset_meta.get("requires_api_key") and not api_key:
+    if ptype != "local_llama" and (preset_meta.get("requires_api_key") or not is_local_endpoint_url(base_url)) and not api_key:
         raise ValueError(f"API Key wajib diisi untuk {display_name}.")
 
     timeout_sec = max(15, min(600, int(updates.get("timeout_seconds") or current.get("timeout_seconds") or 180)))
@@ -415,7 +516,7 @@ def build_chat_request(
     - anthropic        -> Messages API resmi Anthropic (top-level `system`, `x-api-key`)
     """
     ptype = str(provider_cfg.get("provider_type") or "local_llama").lower()
-    api_key = str(provider_cfg.get("api_key") or "").strip()
+    api_key = sanitize_api_key(provider_cfg.get("api_key"))
     headers: Dict[str, str] = {"Content-Type": "application/json"}
     extra_hdr = provider_cfg.get("extra_headers") or {}
     if isinstance(extra_hdr, dict):
@@ -424,7 +525,10 @@ def build_chat_request(
                 headers[str(hk)] = str(hv)
 
     if ptype == "anthropic":
-        url = build_anthropic_messages_url(provider_cfg.get("base_url", "https://api.anthropic.com/v1"))
+        base_ant = str(provider_cfg.get("base_url") or "https://api.anthropic.com/v1")
+        if not api_key and not is_local_endpoint_url(base_ant):
+            raise ValueError("API Key kosong (Missing Auth Header). Tempel API Key Anthropic Anda pada pengelola AI.")
+        url = build_anthropic_messages_url(base_ant)
         if api_key:
             headers["x-api-key"] = api_key
         headers.setdefault("anthropic-version", "2023-06-01")
@@ -439,7 +543,11 @@ def build_chat_request(
         return url, headers, payload
 
     if ptype == "openai_compatible":
-        base_url = provider_cfg.get("base_url") or "https://api.openai.com/v1"
+        base_url = str(provider_cfg.get("base_url") or "https://api.openai.com/v1")
+        if not api_key and not is_local_endpoint_url(base_url):
+            raise ValueError(
+                f"API Key kosong untuk endpoint {base_url} (Missing Auth Header). Tempel API Key Anda di pengelola AI."
+            )
         url = build_openai_chat_url(base_url)
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -555,8 +663,10 @@ async def fetch_remote_models(
         raise RuntimeError("httpx belum terinstal.")
 
     ptype = (provider_type or "openai_compatible").lower()
-    clean_key = (api_key or "").strip()
+    clean_key = sanitize_api_key(api_key)
     is_google_gemini = "generativelanguage.googleapis.com" in (base_url or "").lower()
+    if not clean_key and not is_local_endpoint_url(base_url):
+        raise ValueError(f"API Key wajib diisi untuk mengambil daftar model dari {base_url}.")
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         # Untuk Google Gemini: cek endpoint native /v1beta/models dulu agar hanya mengambil model `generateContent` aktif!
@@ -780,7 +890,7 @@ async def auto_detect_and_probe(
     tanpa pengguna perlu memilih provider secara terpisah.
     Mengembalikan `(detected_provider_updates, probe_result)`.
     """
-    clean_key = (api_key or "").strip()
+    clean_key = sanitize_api_key(api_key)
     if not clean_key:
         # Tanpa API Key: periksa server lokal yang mungkin aktif (Ollama / LM Studio)
         for local_pid in ("ollama", "custom_openai"):
@@ -869,10 +979,10 @@ async def test_provider_connection(
         )
         if test_cfg.get("clear_api_key"):
             cfg["api_key"] = ""
-        elif test_cfg.get("api_key") is not None and str(test_cfg.get("api_key")).strip():
-            cfg["api_key"] = str(test_cfg["api_key"]).strip()
+        elif test_cfg.get("api_key") is not None and sanitize_api_key(test_cfg.get("api_key")):
+            cfg["api_key"] = sanitize_api_key(test_cfg.get("api_key"))
         elif raw_ptype == "auto" and current.get("provider_type") != "local_llama" and not raw_base_url:
-            cfg["api_key"] = str(current.get("api_key") or "")
+            cfg["api_key"] = sanitize_api_key(current.get("api_key"))
             cfg["provider_type"] = current.get("provider_type") or "openai_compatible"
             cfg["preset_id"] = current.get("preset_id") or "custom_openai"
             cfg["base_url"] = current.get("base_url") or ""
@@ -899,16 +1009,19 @@ async def test_provider_connection(
 
     if ptype == "auto":
         if raw_base_url:
-            cfg["provider_type"] = "openai_compatible"
+            cfg["provider_type"] = "anthropic" if "anthropic" in raw_base_url.lower() else "openai_compatible"
             cfg["preset_id"] = str(test_cfg.get("preset_id") or "custom_openai") if test_cfg else "custom_openai"
+            if not is_local_endpoint_url(raw_base_url) and not sanitize_api_key(cfg.get("api_key")):
+                raise RuntimeError(f"API Key wajib diisi untuk endpoint {raw_base_url}.")
             _, probe_res = await _pick_and_probe_candidates(cfg, explicit_model=explicit_model)
             return probe_res
-        _, probe_res = await auto_detect_and_probe(str(cfg.get("api_key") or ""), explicit_model=explicit_model)
+        _, probe_res = await auto_detect_and_probe(sanitize_api_key(cfg.get("api_key")), explicit_model=explicit_model)
         return probe_res
 
     preset_meta = _PRESET_MAP.get(str(cfg.get("preset_id") or ""), {})
-    if preset_meta.get("requires_api_key") and not str(cfg.get("api_key") or "").strip():
-        raise RuntimeError(f"API Key wajib diisi untuk {preset_meta.get('label') or ptype}.")
+    eff_url = str(cfg.get("base_url") or preset_meta.get("base_url") or "")
+    if (preset_meta.get("requires_api_key") or not is_local_endpoint_url(eff_url)) and not sanitize_api_key(cfg.get("api_key")):
+        raise RuntimeError(f"API Key wajib diisi untuk {preset_meta.get('label') or eff_url}.")
 
     _, probe_res = await _pick_and_probe_candidates(cfg, explicit_model=explicit_model)
     return probe_res
@@ -934,11 +1047,11 @@ async def resolve_and_activate_provider(
     if explicit_model.lower() == "auto":
         explicit_model = ""
     raw_base_url = str(updates.get("base_url") or "").strip()
-    raw_api_key = "" if updates.get("clear_api_key") else str(updates.get("api_key") or "").strip()
+    raw_api_key = "" if updates.get("clear_api_key") else sanitize_api_key(updates.get("api_key"))
 
     # Mode Universal Auto-Detect: cukup isi API Key apa saja!
     if ptype == "auto" and not raw_base_url:
-        effective_key = raw_api_key or (str(current.get("api_key") or "") if current.get("provider_type") != "local_llama" else "")
+        effective_key = raw_api_key or (sanitize_api_key(current.get("api_key")) if current.get("provider_type") != "local_llama" else "")
         detected_cfg, probe_result = await auto_detect_and_probe(effective_key, explicit_model=explicit_model)
         final_updates = dict(updates, **detected_cfg)
         final_updates["clear_api_key"] = False
@@ -962,11 +1075,11 @@ async def resolve_and_activate_provider(
     elif raw_api_key:
         api_key = raw_api_key
     elif same_target:
-        api_key = str(current.get("api_key") or "")
+        api_key = sanitize_api_key(current.get("api_key"))
     else:
         api_key = ""
 
-    if preset_meta.get("requires_api_key") and not api_key:
+    if (preset_meta.get("requires_api_key") or not is_local_endpoint_url(base_url)) and not api_key:
         raise ValueError(f"API Key wajib diisi untuk {display_name}.")
 
     probe_result: Optional[Dict[str, Any]] = None
