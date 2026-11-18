@@ -1610,7 +1610,7 @@
                     <button @click="modelModalTab = 'online'"
                         class="px-3 py-1.5 rounded-md font-semibold border transition"
                         :class="modelModalTab === 'online' ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-secondary studio-border studio-text-secondary'">
-                        🌐 API Online (Pakai Key Saja)
+                        🌐 API Online (Auto-Detect Key)
                     </button>
                     <button x-show="runtimeMode !== 'browser'" @click="modelModalTab = 'local'"
                         class="px-3 py-1.5 rounded-md font-semibold border transition"
@@ -1925,59 +1925,45 @@
                     </div>
                 </div>
 
-                <!-- TAB 4: API ONLINE & SUMBER EKSTERNAL KOMPATIBEL -->
+                <!-- TAB 4: API ONLINE UNIVERSAL (TEMPEL API KEY -> AUTO-DETECT PROVIDER & MODEL TERBARU) -->
                 <div x-show="modelModalTab === 'online'" class="space-y-4">
                     <div class="p-4 rounded-lg studio-bg-secondary border studio-border space-y-3">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <div>
                                 <h4 class="font-bold text-sm studio-accent-text">
-                                    🌐 Hubungkan API Online (Cukup Pilih Sumber &amp; API Key)
+                                    🌐 Hubungkan API AI Apa Saja (Otomatis Deteksi)
                                 </h4>
                                 <p class="text-[11px] studio-text-muted mt-0.5">
-                                    Tidak perlu repot memilih ID model. Pilih sumber AI lalu masukkan API Key Anda — Studio otomatis mendeteksi model aktif terbaik, menguji koneksi, dan langsung menjalankannya untuk menulis.
+                                    Tidak perlu memilih provider maupun model satu per satu. Cukup tempel <strong>API Key</strong> dari <strong>Google Gemini, OpenRouter, Groq, OpenAI, Anthropic Claude, DeepSeek, Mistral, xAI, atau HuggingFace</strong> — Studio langsung mengenali sumbernya, mengambil model aktif terbaru, menguji koneksi, dan siap menulis.
                                 </p>
                             </div>
                             <span class="px-2.5 py-1 rounded font-mono text-[11px] font-bold"
                                 :class="aiProviderSummary.provider_type !== 'local_llama' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'studio-bg-primary studio-text-muted'"
-                                x-text="aiProviderSummary.provider_type !== 'local_llama' ? `AKTIF: ${aiProviderSummary.model_name}` : 'Mode Lokal Aktif'"></span>
+                                x-text="aiProviderSummary.provider_type !== 'local_llama' ? `AKTIF: ${aiProviderSummary.model_name}` : 'Belum Ada API Aktif'"></span>
                         </div>
 
-                        <!-- Langkah 1: Pilih Sumber AI -->
-                        <div>
-                            <label class="block font-semibold mb-1.5">1. Pilih Sumber AI</label>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-1.5">
-                                <template x-for="preset in aiProviderPresets" :key="preset.preset_id">
-                                    <button type="button" @click="selectProviderPreset(preset)"
-                                        :class="aiProviderForm.preset_id === preset.preset_id ? 'studio-accent-bg text-white border-transparent' : 'studio-bg-primary studio-border hover:border-amber-500'"
-                                        class="p-2 rounded border text-left transition">
-                                        <div class="font-bold truncate" x-text="preset.label"></div>
-                                        <div class="text-[10px] opacity-80 truncate"
-                                            x-text="preset.requires_api_key ? 'Perlu API Key • Model Otomatis' : 'Tanpa Key • Deteksi Otomatis'"></div>
-                                    </button>
-                                </template>
-                            </div>
-                            <template x-if="selectedPresetMeta">
-                                <p class="text-[11px] studio-text-muted mt-1.5" x-text="`ℹ️ ${selectedPresetMeta.notes}`"></p>
-                            </template>
-                        </div>
-
-                        <!-- Langkah 2: Masukkan API Key -->
-                        <div class="pt-1 space-y-1.5">
+                        <!-- Kotak Tunggal API Key Universal -->
+                        <div class="pt-1 space-y-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <label class="font-semibold"
-                                    x-text="selectedPresetMeta && !selectedPresetMeta.requires_api_key ? '2. API Key (Opsional untuk Ollama / Server Lokal)' : '2. Masukkan API Key *'"></label>
+                                <label class="font-semibold">🔑 Masukkan API Key AI Anda</label>
                                 <button type="button" x-show="aiProviderSummary.has_api_key"
                                     @click="saveAndActivateAiProvider(true)"
                                     class="text-[10px] text-red-500 hover:underline">
-                                    🗑️ Hapus Key &amp; Kembali ke Lokal
+                                    🗑️ Hapus Key Tersimpan
                                 </button>
                             </div>
                             <input type="password" x-model="aiProviderForm.api_key"
-                                :placeholder="aiProviderSummary.has_api_key && aiProviderSummary.preset_id === aiProviderForm.preset_id ? `Tersimpan (${aiProviderSummary.api_key_masked}) — kosongkan jika tetap pakai key ini` : (selectedPresetMeta && !selectedPresetMeta.requires_api_key ? 'Kosongkan bila server lokal/LAN tanpa autentikasi' : 'Tempel API Key di sini (disimpan lokal aman izin 0600)')"
-                                class="w-full px-3 py-2 rounded studio-bg-primary border studio-border font-mono text-xs" />
-                            <p class="text-[11px] studio-text-muted">
-                                🤖 Model aktif terbaik dari akun Anda akan dipilih, diuji, dan langsung dijalankan otomatis tanpa perlu konfigurasi manual.
-                            </p>
+                                :placeholder="aiProviderSummary.has_api_key ? `Key aktif tersimpan (${aiProviderSummary.api_key_masked}) — tempel key baru untuk mengganti` : 'Tempel API Key apa saja di sini (AIza..., sk-or-..., sk-ant-..., gsk_..., sk-..., dll.)'"
+                                class="w-full px-3 py-2.5 rounded studio-bg-primary border studio-border font-mono text-xs" />
+
+                            <template x-if="detectedKeyHint">
+                                <p class="text-[11px] font-mono text-emerald-600 dark:text-emerald-400" x-text="detectedKeyHint"></p>
+                            </template>
+                            <template x-if="!detectedKeyHint">
+                                <p class="text-[11px] studio-text-muted">
+                                    🤖 Provider &amp; model generasi terbaru yang aktif di akun Anda dideteksi otomatis langsung dari API (tersimpan aman di perangkat Anda saja).
+                                </p>
+                            </template>
                         </div>
 
                         <!-- Hasil Uji / Aktivasi Koneksi -->
@@ -1992,28 +1978,40 @@
                         <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t studio-border">
                             <button type="button" @click="testAiProviderConnection()" :disabled="isTestingProvider || isSavingProvider"
                                 class="px-3.5 py-2 rounded font-semibold studio-bg-primary border studio-border hover:border-amber-500 disabled:opacity-50">
-                                <span x-text="isTestingProvider ? '⏳ Menguji API...' : '⚡ Uji Koneksi Saja'"></span>
+                                <span x-text="isTestingProvider ? '⏳ Mendeteksi &amp; Menguji...' : '⚡ Uji Auto-Detect'"></span>
                             </button>
                             <button type="button" @click="saveAndActivateAiProvider(false)" :disabled="isSavingProvider || isTestingProvider"
                                 class="px-4 py-2 rounded font-bold studio-accent-bg text-white disabled:opacity-50">
-                                <span x-text="isSavingProvider ? '⏳ Menguji &amp; Menjalankan API...' : '🚀 Aktifkan &amp; Langsung Jalankan API'"></span>
+                                <span x-text="isSavingProvider ? '⏳ Mendeteksi &amp; Menjalankan AI...' : '🚀 Auto-Detect &amp; Langsung Jalankan AI'"></span>
                             </button>
                         </div>
 
-                        <!-- Pengaturan Lanjutan Opsional -->
+                        <!-- Pengaturan Lanjutan Opsional (Ollama Lokal / URL Kustom / Pilih Model Manual) -->
                         <div class="pt-1">
                             <button type="button" @click="showAdvancedProviderOptions = !showAdvancedProviderOptions"
                                 class="text-[11px] font-semibold studio-text-secondary hover:underline">
-                                <span x-text="showAdvancedProviderOptions ? '▾ Sembunyikan Pengaturan Lanjutan' : '▸ Pengaturan Lanjutan (Ganti Model / URL Kustom — Opsional)'"></span>
+                                <span x-text="showAdvancedProviderOptions ? '▾ Sembunyikan Pengaturan Lanjutan' : '▸ Pengaturan Lanjutan (Ollama / URL Kustom / Model Spesifik — Opsional)'"></span>
                             </button>
 
                             <div x-show="showAdvancedProviderOptions"
                                 class="mt-2 p-3 rounded-lg studio-bg-primary border studio-border space-y-3">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block font-semibold mb-1">Mode Sumber / Preset</label>
+                                        <select :value="aiProviderForm.preset_id" @change="onAdvancedPresetSelect($event.target.value)"
+                                            class="w-full px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]">
+                                            <option value="auto">Auto-Detect dari API Key (Disarankan)</option>
+                                            <template x-for="preset in aiProviderPresets" :key="preset.preset_id">
+                                                <option :value="preset.preset_id" x-text="preset.label"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
                                     <div>
                                         <label class="block font-semibold mb-1">Protokol API</label>
                                         <select x-model="aiProviderForm.provider_type"
                                             class="w-full px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]">
+                                            <option value="auto">Auto-Detect</option>
                                             <option value="openai_compatible">OpenAI-Compatible (/v1/chat/completions)</option>
                                             <option value="anthropic">Anthropic Claude (/v1/messages)</option>
                                         </select>
@@ -2022,7 +2020,7 @@
                                     <div>
                                         <label class="block font-semibold mb-1">Base URL Endpoint</label>
                                         <input type="text" x-model="aiProviderForm.base_url"
-                                            placeholder="https://api.openai.com/v1"
+                                            placeholder="Kosongkan untuk Auto-Detect, atau misal http://127.0.0.1:11434/v1"
                                             class="w-full px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]" />
                                     </div>
                                 </div>
@@ -2032,28 +2030,18 @@
                                         <label class="font-semibold">Nama / ID Model Khusus (Opsional)</label>
                                         <button type="button" @click="fetchRemoteModelsList()" :disabled="isFetchingRemoteModels"
                                             class="text-[10px] px-2 py-0.5 rounded studio-accent-soft studio-accent-text font-semibold hover:opacity-80 disabled:opacity-50">
-                                            <span x-text="isFetchingRemoteModels ? '⏳ Mengambil...' : '🔍 Ambil Daftar Model'"></span>
+                                            <span x-text="isFetchingRemoteModels ? '⏳ Mengambil...' : '🔍 Ambil Daftar Model Aktif'"></span>
                                         </button>
                                     </div>
                                     <input type="text" x-model="aiProviderForm.model_name"
-                                        placeholder="Kosongkan untuk otomatis memilih model aktif terbaik dari API"
+                                        placeholder="Kosongkan untuk otomatis memilih model aktif terbaru dari server API"
                                         class="w-full px-2.5 py-1.5 rounded studio-bg-secondary border studio-border font-mono text-[11px]" />
-
-                                    <template x-if="selectedPresetMeta && (selectedPresetMeta.suggested_models || []).length > 0">
-                                        <div class="flex flex-wrap gap-1 mt-1.5">
-                                            <template x-for="sm in selectedPresetMeta.suggested_models" :key="sm">
-                                                <button type="button" @click="aiProviderForm.model_name = sm"
-                                                    class="px-1.5 py-0.5 rounded text-[10px] font-mono studio-bg-secondary border studio-border hover:border-amber-500"
-                                                    x-text="sm"></button>
-                                            </template>
-                                        </div>
-                                    </template>
 
                                     <template x-if="remoteFetchedModels.length > 0">
                                         <select @change="aiProviderForm.model_name = $event.target.value"
                                             class="w-full mt-1.5 px-2 py-1 rounded studio-bg-secondary border studio-border font-mono text-[10px]">
                                             <option value=""
-                                                x-text="`-- Pilih dari ${remoteFetchedModels.length} model server --`"></option>
+                                                x-text="`-- Pilih dari ${remoteFetchedModels.length} model aktif --`"></option>
                                             <template x-for="rm in remoteFetchedModels" :key="rm">
                                                 <option :value="rm" x-text="rm"></option>
                                             </template>

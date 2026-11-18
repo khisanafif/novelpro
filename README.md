@@ -141,8 +141,8 @@ Pengguna dapat langsung membuka Studio dari HP, tablet, atau laptop tanpa Python
 
 1. **Buka alamat Web Studio:** `https://khisanafif.github.io/novelpro/`
 2. Klik badge AI di pojok kanan atas (**`🌐 Pilih AI & API Key`**).
-3. **Pilih Sumber AI** yang mendukung akses langsung dari browser (*OpenRouter*, *Google Gemini*, *Groq*, *OpenAI*, *Mistral*, atau *Anthropic Claude*).
-4. **Tempel API Key** *(tersimpan aman hanya di browser perangkat tersebut, tidak dikirim ke server perantara mana pun)* lalu klik **`🚀 Aktifkan & Langsung Jalankan API`**.
+3. **Tempel API Key apa saja** (*Google Gemini, OpenRouter, Groq, OpenAI, Mistral, Anthropic Claude, xAI, atau HuggingFace* — tidak perlu memilih provider satu per satu; key hanya tersimpan di browser perangkat tersebut).
+4. Klik **`🚀 Auto-Detect & Langsung Jalankan AI`** — Studio otomatis mengenali provider Anda, memilih model aktif generasi terbaru langsung dari server API, menguji koneksi, dan siap dipakai menulis.
 5. **Penyimpanan & Pindah Perangkat:** Seluruh novel, Codex, Phase, dan riwayat revisi tersimpan otomatis di `localStorage` browser dan dapat diekspor menjadi **`.EPUB`**, **`.MD`**, **HTML Siap Cetak/PDF**, maupun **Backup `.JSON`** (format `.JSON` 100% kompatibel dengan Studio versi Python/Desktop!).
 
 <details>
@@ -356,27 +356,24 @@ Seluruh arsip berasal dari rilis resmi [ggml-org/llama.cpp `b12428`](https://git
 
 Dengan adapter [backend/ai_provider.py](backend/ai_provider.py), seluruh proses AI (**Write Beat Streaming**, **Generate Beat Plan**, dan **AI State Extractor**) langsung berjalan lewat provider pilihan Anda dengan kecepatan cloud atau server GPU lokal lain.
 
-#### Daftar Sumber Kompatibel yang Tersedia di Preset
-| Provider / Sumber | Protokol | Base URL | Contoh Model Otomatis | API Key |
-| :--- | :--- | :--- | :--- | :---: |
-| **OpenRouter** *(Rekomendasi fleksibel)* | `openai_compatible` | `https://openrouter.ai/api/v1` | `openrouter/free` / deteksi tier gratis otomatis | Wajib |
-| **Google Gemini** *(AI Studio)* | `openai_compatible` | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` / deteksi Flash aktif | Wajib |
-| **Groq Cloud** *(Super Cepat)* | `openai_compatible` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Wajib |
-| **OpenAI** | `openai_compatible` | `https://api.openai.com/v1` | `gpt-4o-mini` / `gpt-4.1-mini` | Wajib |
-| **DeepSeek API** | `openai_compatible` | `https://api.deepseek.com/v1` | `deepseek-chat`, `deepseek-reasoner` | Wajib |
-| **Mistral AI** | `openai_compatible` | `https://api.mistral.ai/v1` | `mistral-small-latest`, `mistral-large-latest` | Wajib |
-| **Anthropic Claude** | `anthropic` | `https://api.anthropic.com/v1` | `claude-sonnet-4-20250514` / `claude-3-7-sonnet-latest` | Wajib |
-| **Ollama (Lokal / Wi-Fi LAN)** | `openai_compatible` | `http://127.0.0.1:11434/v1` | Deteksi model aktif otomatis (`qwen2.5:7b`, dll.) | Tidak wajib |
-| **LM Studio / KoboldCpp / vLLM** | `openai_compatible` | `http://127.0.0.1:1234/v1` *(atau URL kustom)* | Deteksi model aktif otomatis | Tidak wajib |
+#### Daftar Sumber yang Didukung Auto-Detect Otomatis
+| Provider / Sumber | Format Key / Deteksi Otomatis | Endpoint Otomatis | Pemilihan Model |
+| :--- | :--- | :--- | :--- |
+| **Google Gemini** *(AI Studio)* | Awalan `AIza...` | `https://generativelanguage.googleapis.com/v1beta/openai` | Live dari `/v1beta/models` (versi aktif terbaru otomatis) |
+| **OpenRouter** | Awalan `sk-or-...` | `https://openrouter.ai/api/v1` | Prioritas `:free` / `openrouter/free` aktif |
+| **Groq Cloud** | Awalan `gsk_...` | `https://api.groq.com/openai/v1` | Live dari `/models` |
+| **Anthropic Claude** | Awalan `sk-ant-...` | `https://api.anthropic.com/v1` | Live dari `/v1/models` terbaru |
+| **OpenAI & DeepSeek** | Awalan `sk-proj-...` / `sk-...` | Auto-probe OpenAI / DeepSeek / OpenRouter | Live dari `/models` |
+| **Mistral AI / xAI / HuggingFace** | `xai-`, `hf_`, atau probe key umum | Endpoint resmi masing-masing | Live dari `/models` |
+| **Ollama / LM Studio** *(Lokal/LAN)* | Scan tanpa key / `Opsi Lanjutan` | `http://127.0.0.1:11434/v1` / `1234/v1` | Model lokal yang termuat |
 
-#### Langkah Mengaktifkan Lewat Web UI (Cukup Pilih Sumber & API Key)
-1. Klik badge status AI di pojok kanan atas layar (`AI: ...` / `Model AI OFFLINE • Pilih`).
-2. Buka tab **`🌐 API Online (Pakai Key Saja)`**.
-3. **1. Pilih Sumber AI:** klik salah satu kartu preset (misalnya *Google Gemini*, *OpenRouter*, *Groq*, *Anthropic Claude*, atau *Ollama*).
-4. **2. Masukkan API Key:** tempel API Key Anda *(disimpan lokal aman izin `0600` di `backend/.ai_provider_config.json`; kosongkan jika memakai Ollama/LM Studio tanpa autentikasi)*.
-5. Klik **`🚀 Aktifkan & Langsung Jalankan API`**. Studio otomatis mendeteksi daftar model di akun API Anda, menguji model aktif terbaik hingga merespons sukses, baru mengalihkan AI (tanpa memutus `llama-server` lokal bila API gagal/key salah).
-6. *(Opsional)* Buka **`▸ Pengaturan Lanjutan`** hanya jika Anda ingin mengganti ID model secara manual, memakai Base URL kustom, atau membiarkan `llama-server` lokal tetap menyala.
-7. Untuk kembali ke mode lokal `.gguf` kapan saja, klik **`↩️ Kembali ke Mode Lokal`**.
+#### Langkah Mengaktifkan Lewat Web UI (Cukup Tempel API Key Apa Saja)
+1. Klik badge status AI di pojok kanan atas layar (`AI: ...` / `🌐 Pilih AI & API Key`).
+2. Buka tab **`🌐 API Online (Auto-Detect Key)`**.
+3. **Tempel API Key AI Anda** di satu kolom yang tersedia *(Google Gemini, OpenRouter, Groq, OpenAI, Claude, DeepSeek, Mistral, xAI, atau HuggingFace — tidak perlu memilih kartu provider secara terpisah)*.
+4. Klik **`🚀 Auto-Detect & Langsung Jalankan AI`**. Studio langsung mengenali sumber API Key Anda, membaca daftar model terbaru yang aktif di akun Anda, memverifikasi respons chat hingga `200 OK`, lalu langsung siap menulis.
+5. *(Opsional)* Buka **`▸ Pengaturan Lanjutan`** hanya jika Anda ingin menghubungkan Ollama/LM Studio lokal, mengganti Base URL kustom, atau memilih ID model secara manual.
+6. Untuk kembali ke mode lokal `.gguf` (pada Studio Desktop/Termux), klik **`↩️ Kembali ke Mode Lokal`**.
 
 <details>
 <summary>Opsional: Cara Mengatur API Online via Environment Variables atau REST API (curl)</summary>
@@ -385,19 +382,18 @@ Dengan adapter [backend/ai_provider.py](backend/ai_provider.py), seluruh proses 
 ```bash
 export NOVEL_AI_PROVIDER="openai_compatible" # atau "anthropic" / "local_llama"
 export NOVEL_AI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
-export NOVEL_AI_MODEL="gemini-2.5-flash" # opsional; jika dikosongkan memakai default preset
+export NOVEL_AI_MODEL="gemini-3.8-flash" # opsional; jika dikosongkan memilih model aktif terbaru otomatis
 export NOVEL_AI_API_KEY="API_KEY_ANDA"
 ./start_studio.sh
 ```
 
-**Via REST API (`curl` — model dipilih & diverifikasi otomatis dari API):**
+**Via REST API (`curl` — sumber & model terbaru dideteksi otomatis hanya dari API Key):**
 ```bash
-# Aktifkan provider online (contoh Google Gemini, model dipilih otomatis)
+# Cukup kirim api_key dengan provider_type "auto" — backend auto-detect sumber & model aktif!
 curl -X POST http://127.0.0.1:8000/api/ai/provider \
   -H "Content-Type: application/json" \
   -d '{
-    "provider_type": "openai_compatible",
-    "preset_id": "gemini",
+    "provider_type": "auto",
     "api_key": "API_KEY_ANDA",
     "stop_local_llama": true
   }'

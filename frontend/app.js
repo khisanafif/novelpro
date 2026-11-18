@@ -251,10 +251,10 @@ function novelStudioApp() {
             base_url: "",
         },
         aiProviderForm: {
-            provider_type: "openai_compatible",
-            preset_id: "openrouter",
-            display_name: "OpenRouter (Banyak Model & Gratis Tier)",
-            base_url: "https://openrouter.ai/api/v1",
+            provider_type: "auto",
+            preset_id: "auto",
+            display_name: "Auto-Detect dari API Key",
+            base_url: "",
             model_name: "",
             api_key: "",
             stop_local_llama: true,
@@ -2070,59 +2070,110 @@ function novelStudioApp() {
             return (this.aiProviderPresets || []).find((p) => p.preset_id === this.aiProviderForm.preset_id) || null;
         },
 
+        get detectedKeyHint() {
+            const k = (this.aiProviderForm.api_key || "").trim();
+            if (!k) return "";
+            if (k.startsWith("AIza")) return "🔎 Terdeteksi otomatis: Google Gemini (AI Studio)";
+            if (k.startsWith("sk-or-")) return "🔎 Terdeteksi otomatis: OpenRouter";
+            if (k.startsWith("sk-ant-")) return "🔎 Terdeteksi otomatis: Anthropic Claude";
+            if (k.startsWith("gsk_")) return "🔎 Terdeteksi otomatis: Groq Cloud";
+            if (k.startsWith("xai-")) return "🔎 Terdeteksi otomatis: xAI (Grok API)";
+            if (k.startsWith("hf_")) return "🔎 Terdeteksi otomatis: HuggingFace Inference Router";
+            if (k.startsWith("sk-proj-") || k.startsWith("sk-svcacct-")) return "🔎 Terdeteksi otomatis: OpenAI (ChatGPT API)";
+            if (k.startsWith("sk-")) return "🔎 Terdeteksi: Format kunci sk- (Auto-Probe OpenAI / DeepSeek / OpenRouter)";
+            return "🔎 Format kunci kustom/umum — akan diuji otomatis ke provider kompatibel";
+        },
+
         async loadAiProviderConfig() {
             try {
                 const data = await this.apiRequest("/api/ai/provider");
                 this.aiProviderPresets = data.presets || [];
                 this.aiProviderSummary = data;
-                if (data.provider_type !== "local_llama") {
+                if (this.showAdvancedProviderOptions && data.provider_type !== "local_llama") {
                     this.aiProviderForm.provider_type = data.provider_type;
                     this.aiProviderForm.preset_id = data.preset_id || "custom_openai";
                     this.aiProviderForm.display_name = data.display_name || "";
                     this.aiProviderForm.base_url = data.base_url || "";
-                    this.aiProviderForm.model_name = this.showAdvancedProviderOptions ? (data.model_name || "") : "";
-                    this.aiProviderForm.api_key = "";
+                    this.aiProviderForm.model_name = data.model_name || "";
+                } else {
+                    // Biarkan mode utama tetap siap Auto-Detect jika user menempel API Key dari sumber apa saja
+                    this.aiProviderForm.provider_type = "auto";
+                    this.aiProviderForm.preset_id = "auto";
+                    this.aiProviderForm.display_name = "Auto-Detect dari API Key";
+                    this.aiProviderForm.base_url = "";
+                    this.aiProviderForm.model_name = "";
                 }
+                this.aiProviderForm.api_key = "";
             } catch (_) {
                 // Abaikan jika backend belum merespons
             }
         },
 
         selectProviderPreset(preset) {
-            if (!preset) return;
+            if (!preset) {
+                this.aiProviderForm.preset_id = "auto";
+                this.aiProviderForm.provider_type = "auto";
+                this.aiProviderForm.display_name = "Auto-Detect dari API Key";
+                this.aiProviderForm.base_url = "";
+                this.aiProviderForm.model_name = "";
+                this.remoteFetchedModels = [];
+                this.providerTestResult = null;
+                return;
+            }
             this.aiProviderForm.preset_id = preset.preset_id;
             this.aiProviderForm.provider_type = preset.provider_type;
             this.aiProviderForm.display_name = preset.label;
             this.aiProviderForm.base_url = preset.base_url;
-            // Kosongkan agar backend memilih & menguji model aktif terbaik otomatis dari API
+            // Kosongkan agar backend memilih & menguji model terbaru aktif otomatis dari API
             this.aiProviderForm.model_name = "";
             this.remoteFetchedModels = [];
             this.providerTestResult = null;
         },
 
-        _validateProviderInputs() {
-            const normalizedUrl = (this.aiProviderForm.base_url || "").trim().replace(/\/+$/, "");
-            if (!normalizedUrl) {
-                return "Base URL API wajib terisi (buka Pengaturan Lanjutan jika memakai URL kustom).";
+        onAdvancedPresetSelect(presetId) {
+            if (!presetId || presetId === "auto") {
+                this.selectProviderPreset(null);
+                return;
             }
-            const meta = this.selectedPresetMeta;
-            const needsKey = meta ? Boolean(meta.requires_api_key) : false;
+            const found = (this.aiProviderPresets || []).find((p) => p.preset_id === presetId);
+            if (found) this.selectProviderPreset(found);
+        },
+
+        _validateProviderInputs() {
             const hasTypedKey = Boolean((this.aiProviderForm.api_key || "").trim());
-            const savedBase = (this.aiProviderSummary?.base_url || "").trim().replace(/\/+$/, "");
-            const hasSavedSameKey = Boolean(
-                this.aiProviderSummary?.has_api_key &&
-                this.aiProviderSummary?.preset_id === this.aiProviderForm.preset_id &&
-                savedBase === normalizedUrl
-            );
-            if (needsKey && !hasTypedKey && !hasSavedSameKey) {
-                return `Masukkan API Key untuk ${this.aiProviderForm.display_name || this.aiProviderForm.preset_id} terlebih dahulu.`;
+            const normalizedUrl = (this.aiProviderForm.base_url || "").trim().replace(/\/+$/, "");
+
+            // Jika URL diisi eksplisit di Pengaturan Lanjutan (mis. Ollama / LM Studio)
+            if (normalizedUrl) {
+                const meta = this.selectedPresetMeta;
+                const needsKey = meta ? Boolean(meta.requires_api_key) : false;
+                const savedBase = (this.aiProviderSummary?.base_url || "").trim().replace(/\/+$/, "");
+                const hasSavedSameKey = Boolean(
+                    this.aiProviderSummary?.has_api_key &&
+                    savedBase === normalizedUrl
+                );
+                if (needsKey && !hasTypedKey && !hasSavedSameKey) {
+                    return `Masukkan API Key untuk ${this.aiProviderForm.display_name || this.aiProviderForm.preset_id} terlebih dahulu.`;
+                }
+                return null;
+            }
+
+            // Mode Universal Auto-Detect: cukup ada API Key (baru atau tersimpan), atau user tidak isi key jika mau scan Ollama lokal
+            if (!hasTypedKey && !this.aiProviderSummary?.has_api_key) {
+                return "Tempel API Key AI Anda di kotak di atas (Gemini, OpenRouter, Groq, OpenAI, Claude, DeepSeek, Mistral, dll.).";
             }
             return null;
         },
 
         async fetchRemoteModelsList() {
-            if (!this.aiProviderForm.base_url || !this.aiProviderForm.base_url.trim()) {
-                this.notify("Isi Base URL API terlebih dahulu.", "warning");
+            let url = (this.aiProviderForm.base_url || "").trim();
+            let ptype = this.aiProviderForm.provider_type === "auto" ? "openai_compatible" : this.aiProviderForm.provider_type;
+            if (!url && this.aiProviderSummary?.provider_type && this.aiProviderSummary.provider_type !== "local_llama") {
+                url = this.aiProviderSummary.base_url || "";
+                ptype = this.aiProviderSummary.provider_type;
+            }
+            if (!url) {
+                this.notify("Aktifkan API Key dulu atau pilih Base URL sumber AI di Opsi Lanjutan.", "warning");
                 return;
             }
             this.isFetchingRemoteModels = true;
@@ -2130,8 +2181,8 @@ function novelStudioApp() {
                 const res = await this.apiRequest("/api/ai/provider/models", {
                     method: "POST",
                     body: JSON.stringify({
-                        provider_type: this.aiProviderForm.provider_type,
-                        base_url: this.aiProviderForm.base_url.trim(),
+                        provider_type: ptype,
+                        base_url: url,
                         api_key: this.aiProviderForm.api_key || null,
                     }),
                 });
@@ -2139,7 +2190,7 @@ function novelStudioApp() {
                 if (this.remoteFetchedModels.length > 0 && !this.aiProviderForm.model_name) {
                     this.aiProviderForm.model_name = this.remoteFetchedModels[0];
                 }
-                this.notify(`Berhasil mengambil ${this.remoteFetchedModels.length} model dari server API.`, "success");
+                this.notify(`Berhasil mengambil ${this.remoteFetchedModels.length} model aktif dari server API.`, "success");
             } catch (err) {
                 this.notify(`Gagal mengambil daftar model: ${err.message}`, "error");
             } finally {
@@ -2157,20 +2208,23 @@ function novelStudioApp() {
             this.isTestingProvider = true;
             this.providerTestResult = null;
             try {
+                const hasCustomUrl = Boolean((this.aiProviderForm.base_url || "").trim());
                 const res = await this.apiRequest("/api/ai/provider/test", {
                     method: "POST",
                     body: JSON.stringify({
-                        provider_type: this.aiProviderForm.provider_type,
-                        preset_id: this.aiProviderForm.preset_id,
-                        display_name: this.aiProviderForm.display_name,
-                        base_url: this.aiProviderForm.base_url.trim(),
+                        provider_type: hasCustomUrl ? this.aiProviderForm.provider_type : "auto",
+                        preset_id: hasCustomUrl ? this.aiProviderForm.preset_id : "auto",
+                        display_name: hasCustomUrl ? this.aiProviderForm.display_name : "Auto-Detect API Key",
+                        base_url: (this.aiProviderForm.base_url || "").trim(),
                         model_name: (this.aiProviderForm.model_name || "").trim(),
                         api_key: this.aiProviderForm.api_key || null,
                     }),
                 });
-                const modelLabel = res.model_name ? `Model aktif: ${res.model_name} • ` : "";
-                this.providerTestResult = { ok: true, message: res.detail || `${modelLabel}Sukses (${res.latency_ms} ms)` };
-                this.notify(`Uji koneksi berhasil (${res.latency_ms} ms)!`, "success");
+                this.providerTestResult = {
+                    ok: true,
+                    message: res.detail || `Model aktif: ${res.model_name || "-"} (${res.latency_ms} ms)`,
+                };
+                this.notify(`Uji auto-detect berhasil (${res.latency_ms} ms)!`, "success");
             } catch (err) {
                 this.providerTestResult = { ok: false, message: err.message };
                 this.notify(`Uji koneksi gagal: ${err.message}`, "error");
@@ -2193,13 +2247,14 @@ function novelStudioApp() {
             this.isSavingProvider = true;
             this.providerTestResult = null;
             try {
+                const hasCustomUrl = Boolean((this.aiProviderForm.base_url || "").trim());
                 const res = await this.apiRequest("/api/ai/provider", {
                     method: "POST",
                     body: JSON.stringify({
-                        provider_type: this.aiProviderForm.provider_type,
-                        preset_id: this.aiProviderForm.preset_id,
-                        display_name: this.aiProviderForm.display_name || this.aiProviderForm.preset_id,
-                        base_url: this.aiProviderForm.base_url.trim(),
+                        provider_type: hasCustomUrl ? this.aiProviderForm.provider_type : "auto",
+                        preset_id: hasCustomUrl ? this.aiProviderForm.preset_id : "auto",
+                        display_name: hasCustomUrl ? (this.aiProviderForm.display_name || this.aiProviderForm.preset_id) : "Auto-Detect API Key",
+                        base_url: (this.aiProviderForm.base_url || "").trim(),
                         model_name: (this.aiProviderForm.model_name || "").trim(),
                         api_key: this.aiProviderForm.api_key || null,
                         clear_api_key: false,
@@ -2208,17 +2263,18 @@ function novelStudioApp() {
                     }),
                 });
                 this.aiProviderForm.api_key = "";
+                const detectedName = res.detected_provider || res.provider?.display_name || "API Online";
                 if (res.test) {
                     this.providerTestResult = {
                         ok: Boolean(res.test.ok),
-                        message: res.test.detail || `Aktif: ${res.configured_model} (${res.test.latency_ms || 0} ms)`,
+                        message: res.test.detail || `${detectedName} • Model: ${res.configured_model}`,
                     };
                 } else {
-                    this.providerTestResult = { ok: true, message: `Aktif: ${res.configured_model}` };
+                    this.providerTestResult = { ok: true, message: `Aktif: ${detectedName} (${res.configured_model})` };
                 }
                 await Promise.all([this.fetchSystemHealth(), this.loadModelsStatus(), this.loadAiProviderConfig()]);
                 this.notify(
-                    `🚀 Sumber AI aktif & terverifikasi: 🌐 ${res.configured_model}! Siap langsung menulis.`,
+                    `🚀 ${detectedName} aktif dengan model 🌐 ${res.configured_model}! Siap langsung menulis.`,
                     "success"
                 );
             } catch (err) {

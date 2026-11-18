@@ -28,6 +28,22 @@
 
     const PROVIDER_PRESETS = [
         {
+            preset_id: "gemini",
+            label: "Google Gemini (AI Studio)",
+            provider_type: "openai_compatible",
+            base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
+            default_model: "",
+            suggested_models: [
+                "gemini-3.8-flash",
+                "gemini-3.5-flash-lite",
+                "gemini-3-flash",
+                "gemini-3.1-pro-preview",
+                "gemini-4-hydrogen",
+            ],
+            requires_api_key: true,
+            notes: "Tempel API Key Gemini (AIza...) — otomatis mendeteksi model aktif terbaru langsung dari server Google.",
+        },
+        {
             preset_id: "openrouter",
             label: "OpenRouter (Banyak Model & Gratis Tier)",
             provider_type: "openai_compatible",
@@ -38,34 +54,17 @@
                 "meta-llama/llama-3.3-70b-instruct:free",
                 "google/gemma-3-27b-it:free",
                 "qwen/qwen3-32b:free",
-                "deepseek/deepseek-chat-v3-0324:free",
-                "deepseek/deepseek-chat",
                 "openai/gpt-4o-mini",
             ],
             requires_api_key: true,
-            notes: "Bisa langsung dipakai dari GitHub Pages! Satu API key untuk banyak model AI & tier gratis.",
-        },
-        {
-            preset_id: "gemini",
-            label: "Google Gemini (AI Studio API)",
-            provider_type: "openai_compatible",
-            base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
-            default_model: "gemini-2.5-flash",
-            suggested_models: [
-                "gemini-2.5-flash",
-                "gemini-2.0-flash",
-                "gemini-2.5-pro",
-                "gemini-1.5-flash",
-            ],
-            requires_api_key: true,
-            notes: "Endpoint resmi Google AI Studio (mendukung browser CORS). Tempel API Key Gemini — model Flash aktif dipilih otomatis.",
+            notes: "Deteksi otomatis via awalan sk-or- — memilih model gratis/aktif terbaik dari akun OpenRouter Anda.",
         },
         {
             preset_id: "groq",
             label: "Groq Cloud (Inferensi Super Kilat)",
             provider_type: "openai_compatible",
             base_url: "https://api.groq.com/openai/v1",
-            default_model: "llama-3.3-70b-versatile",
+            default_model: "",
             suggested_models: [
                 "llama-3.3-70b-versatile",
                 "llama-3.1-8b-instant",
@@ -73,34 +72,34 @@
                 "gemma2-9b-it",
             ],
             requires_api_key: true,
-            notes: "Kecepatan ratusan token/detik langsung dari browser dengan tier gratis console.groq.com.",
+            notes: "Deteksi otomatis via awalan gsk_ — inferensi ratusan token/detik di browser.",
         },
         {
             preset_id: "openai",
             label: "OpenAI (ChatGPT API)",
             provider_type: "openai_compatible",
             base_url: "https://api.openai.com/v1",
-            default_model: "gpt-4o-mini",
-            suggested_models: ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4o", "gpt-4.1"],
+            default_model: "",
+            suggested_models: ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1", "gpt-4o"],
             requires_api_key: true,
-            notes: "API resmi OpenAI (mendukung CORS browser). Cukup tempel API Key — model aktif dipilih otomatis.",
+            notes: "Deteksi otomatis untuk API Key OpenAI — memilih model aktif di akun Anda.",
         },
         {
             preset_id: "deepseek",
             label: "DeepSeek API",
             provider_type: "openai_compatible",
             base_url: "https://api.deepseek.com/v1",
-            default_model: "deepseek-chat",
+            default_model: "",
             suggested_models: ["deepseek-chat", "deepseek-reasoner"],
             requires_api_key: true,
-            notes: "Kualitas penulisan fiksi tinggi. Catatan: bila browser memblokir CORS DeepSeek, gunakan OpenRouter atau Studio lokal.",
+            notes: "Kualitas penulisan fiksi tinggi. Catatan: jika browser memblokir CORS DeepSeek, gunakan OpenRouter atau Studio lokal.",
         },
         {
             preset_id: "mistral",
             label: "Mistral AI (La Plateforme)",
             provider_type: "openai_compatible",
             base_url: "https://api.mistral.ai/v1",
-            default_model: "mistral-small-latest",
+            default_model: "",
             suggested_models: ["mistral-small-latest", "mistral-large-latest", "open-mistral-nemo"],
             requires_api_key: true,
             notes: "Mendukung akses browser langsung; prosa ekspresif untuk fiksi sastra & fantasi.",
@@ -110,23 +109,41 @@
             label: "Anthropic Claude (Messages API)",
             provider_type: "anthropic",
             base_url: "https://api.anthropic.com/v1",
-            default_model: "claude-sonnet-4-20250514",
+            default_model: "",
             suggested_models: [
                 "claude-sonnet-4-20250514",
                 "claude-3-7-sonnet-latest",
-                "claude-3-5-haiku-latest",
-                "claude-3-5-sonnet-latest",
             ],
             requires_api_key: true,
-            notes: "Kualitas sastra & dialog Claude (otomatis mengirim header direct-browser-access dari web).",
+            notes: "Deteksi otomatis via awalan sk-ant- (mengirim header direct-browser-access dari web).",
+        },
+        {
+            preset_id: "xai",
+            label: "xAI (Grok API)",
+            provider_type: "openai_compatible",
+            base_url: "https://api.x.ai/v1",
+            default_model: "",
+            suggested_models: ["grok-3-mini", "grok-3"],
+            requires_api_key: true,
+            notes: "Deteksi otomatis via awalan xai- untuk endpoint xAI Grok.",
+        },
+        {
+            preset_id: "huggingface_router",
+            label: "HuggingFace Inference Router",
+            provider_type: "openai_compatible",
+            base_url: "https://router.huggingface.co/v1",
+            default_model: "",
+            suggested_models: [],
+            requires_api_key: true,
+            notes: "Deteksi otomatis token hf_ menggunakan HuggingFace Inference Router.",
         },
         {
             preset_id: "ollama",
             label: "Ollama (Lokal / Server Wi-Fi LAN)",
             provider_type: "openai_compatible",
             base_url: "http://127.0.0.1:11434/v1",
-            default_model: "qwen2.5:7b",
-            suggested_models: ["qwen2.5:7b", "qwen3:4b", "gemma2:9b", "mistral-nemo:12b"],
+            default_model: "",
+            suggested_models: ["qwen3:4b", "qwen2.5:7b", "gemma3:4b"],
             requires_api_key: false,
             notes: "Untuk akses Ollama dari GitHub Pages HTTPS, jalankan Ollama dengan env OLLAMA_ORIGINS=*.",
         },
@@ -135,14 +152,29 @@
             label: "LM Studio / KoboldCpp / vLLM / Custom URL",
             provider_type: "openai_compatible",
             base_url: "http://127.0.0.1:1234/v1",
-            default_model: "local-model",
+            default_model: "",
             suggested_models: [],
             requires_api_key: false,
-            notes: "Endpoint OpenAI-compatible apa saja yang mengizinkan CORS browser (LM Studio, vLLM, HuggingFace Router).",
+            notes: "Endpoint OpenAI-compatible apa saja yang mengizinkan CORS browser.",
         },
     ];
 
     const PRESET_MAP = Object.fromEntries(PROVIDER_PRESETS.map((p) => [p.preset_id, p]));
+    const GENERIC_KEY_PROBE_ORDER = ["openrouter", "gemini", "groq", "openai", "mistral", "anthropic", "deepseek", "xai"];
+
+    function classifyApiKeyProviders(apiKey) {
+        const key = String(apiKey || "").trim();
+        if (!key) return { candidates: ["ollama", "custom_openai"], highConf: false };
+        if (key.startsWith("AIza")) return { candidates: ["gemini"], highConf: true };
+        if (key.startsWith("sk-or-")) return { candidates: ["openrouter"], highConf: true };
+        if (key.startsWith("sk-ant-")) return { candidates: ["anthropic"], highConf: true };
+        if (key.startsWith("gsk_")) return { candidates: ["groq"], highConf: true };
+        if (key.startsWith("xai-")) return { candidates: ["xai"], highConf: true };
+        if (key.startsWith("sk-proj-") || key.startsWith("sk-svcacct-")) return { candidates: ["openai"], highConf: true };
+        if (key.startsWith("hf_")) return { candidates: ["huggingface_router"], highConf: true };
+        if (key.startsWith("sk-")) return { candidates: ["openai", "openrouter", "deepseek"], highConf: false };
+        return { candidates: [...GENERIC_KEY_PROBE_ORDER], highConf: false };
+    }
 
     function nowIso() {
         return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -348,16 +380,94 @@
         const low = String(modelId || "").toLowerCase();
         if (!low) return false;
         const skip = [
-            "embedding", "embed-", "whisper", "tts-", "dall-e", "imagen",
-            "moderation", "realtime", "transcribe", "audio-preview", "sora", "veo",
+            "embedding", "embed-", "whisper", "tts", "dall-e", "imagen",
+            "moderation", "guard", "realtime", "transcribe", "audio", "sora", "veo",
+            "aqa", "robotics", "computer-use", "-image", "image-generation", "nano-banana",
         ];
         return !skip.some((k) => low.includes(k));
+    }
+
+    function extractVersionTuple(modelId) {
+        const low = String(modelId || "").toLowerCase();
+        const re = /(?:^|[-_/])(\d{1,2})(?:\.(\d{1,2}))?(?:\.(\d{1,2}))?(?=$|[-_:/a-z])/g;
+        let best = [0, 0, 0];
+        let m;
+        while ((m = re.exec(low)) !== null) {
+            const maj = Number(m[1]);
+            if (maj > 20) continue;
+            const ver = [maj, Number(m[2] || 0), Number(m[3] || 0)];
+            if (
+                ver[0] > best[0] ||
+                (ver[0] === best[0] && ver[1] > best[1]) ||
+                (ver[0] === best[0] && ver[1] === best[1] && ver[2] > best[2])
+            ) {
+                best = ver;
+            }
+        }
+        return best;
+    }
+
+    function rankModelsForWriting(models, presetId = "") {
+        const scoreOf = (mid) => {
+            const low = mid.toLowerCase();
+            let s = 0;
+            if (low === "openrouter/free") s += 500;
+            if (presetId === "openrouter" && low.endsWith(":free")) s += 200;
+            if (presetId === "gemini" && low.startsWith("gemini-")) s += 120;
+            if (["flash", "hydrogen", "chat", "sonnet", "mini", "versatile", "small"].some((t) => low.includes(t))) s += 50;
+            if (low.includes("pro") || low.includes("argon") || low.includes("large")) s += 25;
+            if (low.includes("-latest")) s += 20;
+            if (["deep-research", "thinking", "exp", "experimental", "vision"].some((t) => low.includes(t))) s -= 40;
+            if (low.includes("live")) s -= 60;
+            if (low.startsWith("gemma-") && presetId === "gemini") s -= 30;
+            return s;
+        };
+        return [...models].sort((a, b) => {
+            const sa = scoreOf(a);
+            const sb = scoreOf(b);
+            if (sb !== sa) return sb - sa;
+            const va = extractVersionTuple(a);
+            const vb = extractVersionTuple(b);
+            for (let i = 0; i < 3; i++) {
+                if (vb[i] !== va[i]) return vb[i] - va[i];
+            }
+            return a.length - b.length;
+        });
     }
 
     async function fetchRemoteModels(providerType, baseUrl, apiKey) {
         const cleanUrl = normalizeBaseUrl(baseUrl);
         const key = String(apiKey || "").trim();
         const ptype = String(providerType || "openai_compatible").toLowerCase();
+
+        // Google Gemini native /v1beta/models -> filter ketat `supportedGenerationMethods` berisi `generateContent`
+        if (cleanUrl.toLowerCase().includes("generativelanguage.googleapis.com")) {
+            const qUrl = `https://generativelanguage.googleapis.com/v1beta/models?pageSize=200${key ? `&key=${encodeURIComponent(key)}` : ""}`;
+            try {
+                const nr = await fetch(qUrl);
+                if (nr.status === 200) {
+                    const nd = await nr.json();
+                    const arr = Array.isArray(nd.models) ? nd.models : [];
+                    const gcModels = [];
+                    for (const item of arr) {
+                        const methods = Array.isArray(item.supportedGenerationMethods) ? item.supportedGenerationMethods : [];
+                        if (!methods.includes("generateContent")) continue;
+                        let mid = String(item.name || item.id || "").trim();
+                        if (mid.startsWith("models/")) mid = mid.slice("models/".length);
+                        if (mid && !gcModels.includes(mid)) gcModels.push(mid);
+                    }
+                    if (gcModels.length) return gcModels;
+                } else if (nr.status === 400 || nr.status === 401 || nr.status === 403) {
+                    const errTxt = (await nr.text()).slice(0, 220);
+                    if (errTxt.toLowerCase().includes("api_key_invalid") || errTxt.toLowerCase().includes("api key not valid") || nr.status === 401 || nr.status === 403) {
+                        throw new Error(`HTTP 401: ${errTxt}`);
+                    }
+                }
+            } catch (e) {
+                if (String(e.message || "").includes("HTTP 401")) throw e;
+                // Fallback ke /openai/models bila perlu
+            }
+        }
 
         if (ptype === "anthropic") {
             const modelsUrl = _buildAnthropicUrl(cleanUrl, "/models");
@@ -424,48 +534,37 @@
         } else {
             let liveModels = [];
             try {
-                liveModels = await fetchRemoteModels(ptype, baseUrl, apiKey);
+                liveModels = (await fetchRemoteModels(ptype, baseUrl, apiKey)).filter(isUsableTextModel);
             } catch (e) {
                 const emsg = String(e.message || "");
                 if (emsg.includes("HTTP 401") || emsg.includes("HTTP 403")) {
-                    throw new Error(`API Key ditolak (${emsg}). Periksa kembali API Key Anda.`);
+                    throw new Error(`API Key ditolak oleh ${presetMeta.label || baseUrl} (${emsg}).`);
                 }
                 if (emsg.toLowerCase().includes("cors") || emsg.toLowerCase().includes("gagal terhubung")) {
                     throw e;
                 }
             }
 
-            const usableLive = liveModels.filter(isUsableTextModel);
-            const suggested = Array.isArray(presetMeta.suggested_models) ? presetMeta.suggested_models : [];
-            const defModel = String(presetMeta.default_model || "").trim();
-
-            if (defModel && (defModel === "openrouter/free" || usableLive.length === 0 || usableLive.includes(defModel))) {
-                candidates.push(defModel);
-            }
-            for (const s of suggested) {
-                if (!candidates.includes(s) && (usableLive.length === 0 || usableLive.includes(s))) {
-                    candidates.push(s);
+            if (liveModels.length) {
+                const ranked = rankModelsForWriting(liveModels, presetId);
+                if (presetId === "openrouter" && !ranked.includes("openrouter/free")) {
+                    candidates.push("openrouter/free");
                 }
-            }
-            if (presetId === "openrouter") {
-                for (const m of usableLive) {
-                    if (m.endsWith(":free") && !candidates.includes(m)) candidates.push(m);
+                for (const m of ranked) {
+                    if (!candidates.includes(m)) candidates.push(m);
                 }
-            }
-            for (const m of usableLive) {
-                if (!candidates.includes(m)) candidates.push(m);
-                if (candidates.length >= 6) break;
-            }
-            for (const s of suggested) {
-                if (!candidates.includes(s)) candidates.push(s);
+            } else {
+                for (const s of presetMeta.suggested_models || []) {
+                    if (!candidates.includes(s)) candidates.push(s);
+                }
             }
             if (!candidates.length) {
-                candidates.push(defModel || (ptype === "anthropic" ? "claude-sonnet-4-20250514" : "gpt-4o-mini"));
+                candidates.push(ptype === "anthropic" ? "claude-sonnet-4-20250514" : "gpt-4.1-mini");
             }
         }
 
         let lastErr = "Tidak ada kandidat model yang dapat merespons.";
-        for (const candidate of candidates.slice(0, 4)) {
+        for (const candidate of candidates.slice(0, 8)) {
             const cfg = { ...probeCfg, base_url: baseUrl, model_name: candidate };
             const { url, headers, payload } = buildChatRequest(
                 cfg,
@@ -503,45 +602,117 @@
                         latency_ms: latencyMs,
                         model_name: candidate,
                         provider_type: ptype,
+                        preset_id: presetId,
                         sample_reply: (txt || "OK").slice(0, 80),
-                        detail: `Koneksi OK (${latencyMs} ms) — Model aktif: ${candidate}`,
+                        detail: `Terhubung ke ${presetMeta.label || ptype} • Model: ${candidate} (${latencyMs} ms)`,
                     },
                 };
             }
 
             const errTxt = (await resp.text()).slice(0, 220);
-            if (resp.status === 401 || resp.status === 403) {
-                throw new Error(`API Key ditolak oleh server (HTTP ${resp.status}): ${errTxt}`);
+            const lowErr = errTxt.toLowerCase();
+            if (
+                resp.status === 401 ||
+                resp.status === 403 ||
+                lowErr.includes("api_key_invalid") ||
+                lowErr.includes("api key not valid")
+            ) {
+                throw new Error(`API Key ditolak oleh ${presetMeta.label || baseUrl} (HTTP ${resp.status}): ${errTxt}`);
             }
             lastErr = `Model '${candidate}' HTTP ${resp.status}: ${errTxt}`;
         }
 
-        throw new Error(`Semua model gagal diuji (${lastErr}).`);
+        throw new Error(`Semua model di ${presetMeta.label || baseUrl} gagal diuji (${lastErr}).`);
+    }
+
+    async function autoDetectAndProbe(apiKey, explicitModel = "") {
+        const cleanKey = String(apiKey || "").trim();
+        if (!cleanKey) {
+            for (const localPid of ["ollama", "custom_openai"]) {
+                const meta = PRESET_MAP[localPid];
+                const cfg = {
+                    provider_type: meta.provider_type,
+                    preset_id: localPid,
+                    display_name: meta.label,
+                    base_url: meta.base_url,
+                    api_key: "",
+                };
+                try {
+                    const res = await pickAndProbeCandidates(cfg, explicitModel);
+                    return { detectedUpdates: { ...cfg, model_name: res.chosenModel }, probeResult: res.probeResult };
+                } catch (_) {
+                    // Coba berikutnya
+                }
+            }
+            throw new Error(
+                "Masukkan API Key AI Anda (Google Gemini, OpenRouter, Groq, OpenAI, Claude, Mistral, xAI), atau nyalakan Ollama/LM Studio dengan CORS aktif."
+            );
+        }
+
+        const { candidates, highConf } = classifyApiKeyProviders(cleanKey);
+        const errors = [];
+        for (const pid of candidates) {
+            const meta = PRESET_MAP[pid];
+            if (!meta) continue;
+            const cfg = {
+                provider_type: meta.provider_type,
+                preset_id: pid,
+                display_name: meta.label,
+                base_url: meta.base_url,
+                api_key: cleanKey,
+            };
+            try {
+                const res = await pickAndProbeCandidates(cfg, explicitModel);
+                return { detectedUpdates: { ...cfg, model_name: res.chosenModel }, probeResult: res.probeResult };
+            } catch (e) {
+                errors.push(`${meta.label}: ${e.message}`);
+                if (highConf) throw e;
+            }
+        }
+        throw new Error(`API Key gagal pada semua provider yang diuji (${errors.slice(0, 3).join(" | ")})`);
     }
 
     async function resolveAndActivateProvider(updates, verifyConnection = true) {
-        const ptype = String(updates.provider_type || "local_llama").trim().toLowerCase();
+        let ptype = String(updates.provider_type || "auto").trim().toLowerCase();
         if (ptype === "local_llama") {
             const next = buildDefaultProviderConfig();
-            if (!updates.clear_api_key) {
-                // Dalam mode browser murni, kembali ke default non-aktif
-            }
             saveProviderConfigRaw(next);
             return { saved: next, probeResult: null };
         }
 
         const current = loadProviderConfig();
+        let explicitModel = String(updates.model_name || "").trim();
+        if (explicitModel.toLowerCase() === "auto") explicitModel = "";
+        const rawBaseUrl = String(updates.base_url || "").trim();
+        const rawApiKey = updates.clear_api_key ? "" : String(updates.api_key || "").trim();
+
+        if (ptype === "auto" && !rawBaseUrl) {
+            const effectiveKey = rawApiKey || (current.provider_type !== "local_llama" ? String(current.api_key || "") : "");
+            const { detectedUpdates, probeResult } = await autoDetectAndProbe(effectiveKey, explicitModel);
+            const nextCfg = {
+                ...detectedUpdates,
+                extra_headers: {},
+                timeout_seconds: Number(updates.timeout_seconds) || 180,
+            };
+            saveProviderConfigRaw(nextCfg);
+            return { saved: nextCfg, probeResult };
+        }
+
+        if (ptype === "auto" && rawBaseUrl) {
+            ptype = rawBaseUrl.toLowerCase().includes("anthropic") ? "anthropic" : "openai_compatible";
+        }
+
         const presetId = String(updates.preset_id || "custom_openai").trim();
         const presetMeta = PRESET_MAP[presetId] || {};
-        const baseUrl = normalizeBaseUrl(updates.base_url || presetMeta.base_url || "");
+        const baseUrl = normalizeBaseUrl(rawBaseUrl || presetMeta.base_url || "");
         const displayName = String(updates.display_name || presetMeta.label || baseUrl).trim();
 
         const sameTarget = presetId === current.preset_id && baseUrl === String(current.base_url || "").replace(/\/+$/, "");
         let apiKey = "";
         if (updates.clear_api_key) {
             apiKey = "";
-        } else if (updates.api_key && String(updates.api_key).trim()) {
-            apiKey = String(updates.api_key).trim();
+        } else if (rawApiKey) {
+            apiKey = rawApiKey;
         } else if (sameTarget) {
             apiKey = String(current.api_key || "");
         }
@@ -549,9 +720,6 @@
         if (presetMeta.requires_api_key && !apiKey) {
             throw new Error(`API Key wajib diisi untuk ${displayName}.`);
         }
-
-        let explicitModel = String(updates.model_name || "").trim();
-        if (explicitModel.toLowerCase() === "auto") explicitModel = "";
 
         let probeResult = null;
         let chosenModel = explicitModel;
@@ -1676,19 +1844,32 @@ ${chHtml}
                 test: probeResult,
                 stopped_local_llama: null,
                 configured_model: saved.model_name,
+                detected_provider: saved.display_name,
             };
         }
         if (pathname === "/api/ai/provider/test" && method === "POST") {
             const current = loadProviderConfig();
+            const rawPtype = String(body.provider_type || "auto").trim().toLowerCase();
+            const rawBase = String(body.base_url || "").trim();
+            if (rawPtype === "auto" && !rawBase) {
+                const key = body.api_key && String(body.api_key).trim()
+                    ? String(body.api_key).trim()
+                    : (current.provider_type !== "local_llama" ? current.api_key : "");
+                const { probeResult } = await autoDetectAndProbe(key, body.model_name || "");
+                return probeResult;
+            }
+            const effectivePtype = rawPtype === "auto"
+                ? (rawBase.toLowerCase().includes("anthropic") ? "anthropic" : "openai_compatible")
+                : rawPtype;
             const presetMeta = PRESET_MAP[body.preset_id] || {};
-            const baseUrl = normalizeBaseUrl(body.base_url || presetMeta.base_url || current.base_url);
+            const baseUrl = normalizeBaseUrl(rawBase || presetMeta.base_url || current.base_url);
             const sameTarget = body.preset_id === current.preset_id && baseUrl === String(current.base_url || "").replace(/\/+$/, "");
             const apiKey = body.api_key && String(body.api_key).trim() ? String(body.api_key).trim() : (sameTarget ? current.api_key : "");
             if (presetMeta.requires_api_key && !apiKey) {
                 throw new Error(`Masukkan API Key untuk ${presetMeta.label || body.preset_id} terlebih dahulu.`);
             }
             const { probeResult } = await pickAndProbeCandidates(
-                { provider_type: body.provider_type, preset_id: body.preset_id, base_url: baseUrl, api_key: apiKey },
+                { provider_type: effectivePtype, preset_id: body.preset_id, base_url: baseUrl, api_key: apiKey },
                 body.model_name || ""
             );
             return probeResult;

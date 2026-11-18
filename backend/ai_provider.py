@@ -1,6 +1,8 @@
+import asyncio
 import json
 import os
 from pathlib import Path
+import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -18,6 +20,22 @@ CONFIG_FILE_PATH = Path(
 
 PROVIDER_PRESETS: List[Dict[str, Any]] = [
     {
+        "preset_id": "gemini",
+        "label": "Google Gemini (AI Studio)",
+        "provider_type": "openai_compatible",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "default_model": "",
+        "suggested_models": [
+            "gemini-3.8-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3-flash",
+            "gemini-3.1-pro-preview",
+            "gemini-4-hydrogen",
+        ],
+        "requires_api_key": True,
+        "notes": "Tempel API Key Gemini (AIza...) — otomatis mendeteksi model aktif terbaru langsung dari server Google.",
+    },
+    {
         "preset_id": "openrouter",
         "label": "OpenRouter (Banyak Model & Gratis Tier)",
         "provider_type": "openai_compatible",
@@ -28,34 +46,17 @@ PROVIDER_PRESETS: List[Dict[str, Any]] = [
             "meta-llama/llama-3.3-70b-instruct:free",
             "google/gemma-3-27b-it:free",
             "qwen/qwen3-32b:free",
-            "deepseek/deepseek-chat-v3-0324:free",
-            "deepseek/deepseek-chat",
             "openai/gpt-4o-mini",
         ],
         "requires_api_key": True,
-        "notes": "Satu API key untuk banyak model AI sekaligus (otomatis memilih model gratis/aktif terbaik dari akun OpenRouter Anda).",
-    },
-    {
-        "preset_id": "gemini",
-        "label": "Google Gemini (AI Studio API)",
-        "provider_type": "openai_compatible",
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "default_model": "gemini-2.5-flash",
-        "suggested_models": [
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-2.5-pro",
-            "gemini-1.5-flash",
-        ],
-        "requires_api_key": True,
-        "notes": "Endpoint resmi Google AI Studio. Cukup tempel API Key Gemini — model Flash aktif otomatis dipilih.",
+        "notes": "Deteksi otomatis via awalan sk-or- — memilih model gratis/aktif terbaik dari akun OpenRouter Anda.",
     },
     {
         "preset_id": "groq",
         "label": "Groq Cloud (Inferensi Super Kilat)",
         "provider_type": "openai_compatible",
         "base_url": "https://api.groq.com/openai/v1",
-        "default_model": "llama-3.3-70b-versatile",
+        "default_model": "",
         "suggested_models": [
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
@@ -63,42 +64,42 @@ PROVIDER_PRESETS: List[Dict[str, Any]] = [
             "gemma2-9b-it",
         ],
         "requires_api_key": True,
-        "notes": "Kecepatan ratusan token/detik via LPU; tersedia tier gratis dari console.groq.com.",
+        "notes": "Deteksi otomatis via awalan gsk_ — inferensi ratusan token/detik.",
     },
     {
         "preset_id": "openai",
         "label": "OpenAI (ChatGPT API)",
         "provider_type": "openai_compatible",
         "base_url": "https://api.openai.com/v1",
-        "default_model": "gpt-4o-mini",
+        "default_model": "",
         "suggested_models": [
-            "gpt-4o-mini",
             "gpt-4.1-mini",
-            "gpt-4o",
+            "gpt-4o-mini",
             "gpt-4.1",
+            "gpt-4o",
         ],
         "requires_api_key": True,
-        "notes": "API resmi OpenAI. Cukup tempel API Key — model aktif di akun Anda dipilih otomatis.",
+        "notes": "Deteksi otomatis untuk API Key OpenAI — memilih model aktif di akun Anda.",
     },
     {
         "preset_id": "deepseek",
         "label": "DeepSeek API",
         "provider_type": "openai_compatible",
         "base_url": "https://api.deepseek.com/v1",
-        "default_model": "deepseek-chat",
+        "default_model": "",
         "suggested_models": [
             "deepseek-chat",
             "deepseek-reasoner",
         ],
         "requires_api_key": True,
-        "notes": "Kualitas penulisan fiksi & dialog sangat tinggi dengan biaya API ekonomis.",
+        "notes": "Kualitas penulisan fiksi & dialog tinggi dengan biaya API ekonomis.",
     },
     {
         "preset_id": "mistral",
         "label": "Mistral AI (La Plateforme)",
         "provider_type": "openai_compatible",
         "base_url": "https://api.mistral.ai/v1",
-        "default_model": "mistral-small-latest",
+        "default_model": "",
         "suggested_models": [
             "mistral-small-latest",
             "mistral-large-latest",
@@ -112,44 +113,103 @@ PROVIDER_PRESETS: List[Dict[str, Any]] = [
         "label": "Anthropic Claude (Messages API)",
         "provider_type": "anthropic",
         "base_url": "https://api.anthropic.com/v1",
-        "default_model": "claude-sonnet-4-20250514",
+        "default_model": "",
         "suggested_models": [
             "claude-sonnet-4-20250514",
             "claude-3-7-sonnet-latest",
-            "claude-3-5-haiku-latest",
-            "claude-3-5-sonnet-latest",
         ],
         "requires_api_key": True,
-        "notes": "Kualitas sastra & dialog Claude. Cukup tempel API Key Anthropic Anda.",
+        "notes": "Deteksi otomatis via awalan sk-ant- — memilih model Claude aktif terbaru.",
+    },
+    {
+        "preset_id": "xai",
+        "label": "xAI (Grok API)",
+        "provider_type": "openai_compatible",
+        "base_url": "https://api.x.ai/v1",
+        "default_model": "",
+        "suggested_models": [
+            "grok-3-mini",
+            "grok-3",
+        ],
+        "requires_api_key": True,
+        "notes": "Deteksi otomatis via awalan xai- untuk endpoint xAI Grok.",
+    },
+    {
+        "preset_id": "huggingface_router",
+        "label": "HuggingFace Inference Router",
+        "provider_type": "openai_compatible",
+        "base_url": "https://router.huggingface.co/v1",
+        "default_model": "",
+        "suggested_models": [],
+        "requires_api_key": True,
+        "notes": "Deteksi otomatis token hf_ menggunakan HuggingFace Inference Router.",
     },
     {
         "preset_id": "ollama",
         "label": "Ollama (Lokal / Server Wi-Fi LAN)",
         "provider_type": "openai_compatible",
         "base_url": "http://127.0.0.1:11434/v1",
-        "default_model": "qwen2.5:7b",
+        "default_model": "",
         "suggested_models": [
-            "qwen2.5:7b",
             "qwen3:4b",
-            "gemma2:9b",
-            "mistral-nemo:12b",
+            "qwen2.5:7b",
+            "gemma3:4b",
         ],
         "requires_api_key": False,
-        "notes": "Hubungkan ke instance Ollama di komputer ini atau PC lain yang punya GPU di jaringan rumah.",
+        "notes": "Hubungkan ke Ollama lokal atau LAN tanpa API Key.",
     },
     {
         "preset_id": "custom_openai",
         "label": "LM Studio / KoboldCpp / vLLM / Custom URL",
         "provider_type": "openai_compatible",
         "base_url": "http://127.0.0.1:1234/v1",
-        "default_model": "local-model",
+        "default_model": "",
         "suggested_models": [],
         "requires_api_key": False,
-        "notes": "Sumber kompatibel OpenAI apa saja (LM Studio, KoboldCpp, TabbyAPI, vLLM, HuggingFace Router, dll.).",
+        "notes": "Endpoint kompatibel OpenAI kustom apa saja (LM Studio, KoboldCpp, TabbyAPI, vLLM, HuggingFace Router, dll.).",
     },
 ]
 
 _PRESET_MAP: Dict[str, Dict[str, Any]] = {p["preset_id"]: p for p in PROVIDER_PRESETS}
+
+_GENERIC_KEY_PROBE_ORDER: List[str] = [
+    "openrouter",
+    "gemini",
+    "groq",
+    "openai",
+    "deepseek",
+    "mistral",
+    "anthropic",
+    "xai",
+]
+
+
+def classify_api_key_providers(api_key: str) -> Tuple[List[str], bool]:
+    """
+    Mendeteksi kandidat provider dari format/prefix API Key pengguna.
+    Mengembalikan `(ordered_preset_ids, is_high_confidence_signature)`.
+    """
+    key = (api_key or "").strip()
+    if not key:
+        return ["ollama", "custom_openai"], False
+    if key.startswith("AIza"):
+        return ["gemini"], True
+    if key.startswith("sk-or-"):
+        return ["openrouter"], True
+    if key.startswith("sk-ant-"):
+        return ["anthropic"], True
+    if key.startswith("gsk_"):
+        return ["groq"], True
+    if key.startswith("xai-"):
+        return ["xai"], True
+    if key.startswith("sk-proj-") or key.startswith("sk-svcacct-"):
+        return ["openai"], True
+    if key.startswith("hf_"):
+        return ["huggingface_router"], True
+    if key.startswith("sk-"):
+        # Bisa OpenAI lama, DeepSeek, atau gateway OpenAI-compatible lain
+        return ["openai", "deepseek", "openrouter"], False
+    return list(_GENERIC_KEY_PROBE_ORDER), False
 
 
 def mask_api_key(key: str) -> str:
@@ -369,7 +429,7 @@ def build_chat_request(
             headers["x-api-key"] = api_key
         headers.setdefault("anthropic-version", "2023-06-01")
         payload: Dict[str, Any] = {
-            "model": provider_cfg.get("model_name") or "claude-3-5-sonnet-latest",
+            "model": provider_cfg.get("model_name") or "claude-sonnet-4-20250514",
             "max_tokens": int(max_tokens),
             "temperature": max(0.0, min(1.0, float(temperature))),
             "system": system_prompt,
@@ -495,18 +555,48 @@ async def fetch_remote_models(
         raise RuntimeError("httpx belum terinstal.")
 
     ptype = (provider_type or "openai_compatible").lower()
-    headers: Dict[str, str] = {}
-    if ptype == "anthropic":
-        url = build_anthropic_messages_url(base_url).replace("/messages", "/models")
-        if api_key.strip():
-            headers["x-api-key"] = api_key.strip()
-        headers["anthropic-version"] = "2023-06-01"
-    else:
-        url = build_openai_models_url(base_url)
-        if api_key.strip():
-            headers["Authorization"] = f"Bearer {api_key.strip()}"
+    clean_key = (api_key or "").strip()
+    is_google_gemini = "generativelanguage.googleapis.com" in (base_url or "").lower()
 
     async with httpx.AsyncClient(timeout=15.0) as client:
+        # Untuk Google Gemini: cek endpoint native /v1beta/models dulu agar hanya mengambil model `generateContent` aktif!
+        if is_google_gemini:
+            native_url = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200"
+            native_headers = {"x-goog-api-key": clean_key} if clean_key else {}
+            native_resp = await client.get(native_url, headers=native_headers)
+            if native_resp.status_code == 200:
+                payload = native_resp.json()
+                raw_models = payload.get("models") if isinstance(payload, dict) else []
+                if isinstance(raw_models, list):
+                    gc_models = []
+                    for m in raw_models:
+                        if not isinstance(m, dict):
+                            continue
+                        methods = m.get("supportedGenerationMethods") or []
+                        if "generateContent" not in methods:
+                            continue
+                        mid = str(m.get("name") or m.get("id") or "").strip().removeprefix("models/")
+                        if mid and mid not in gc_models:
+                            gc_models.append(mid)
+                    if gc_models:
+                        return gc_models[:250]
+            elif native_resp.status_code in (400, 401, 403):
+                # Cek cepat pesan error API Key Google (kadang key invalid menghasilkan 400 API_KEY_INVALID!)
+                txt_l = native_resp.text.lower()
+                if "api_key_invalid" in txt_l or "api key not valid" in txt_l or native_resp.status_code in (401, 403):
+                    raise RuntimeError(f"HTTP 401: {native_resp.text[:250]}")
+
+        headers: Dict[str, str] = {}
+        if ptype == "anthropic":
+            url = build_anthropic_messages_url(base_url).replace("/messages", "/models")
+            if clean_key:
+                headers["x-api-key"] = clean_key
+            headers["anthropic-version"] = "2023-06-01"
+        else:
+            url = build_openai_models_url(base_url)
+            if clean_key:
+                headers["Authorization"] = f"Bearer {clean_key}"
+
         resp = await client.get(url, headers=headers)
         if resp.status_code != 200:
             if ptype == "anthropic" and resp.status_code in (404, 405):
@@ -517,32 +607,91 @@ async def fetch_remote_models(
     raw_list = data.get("data") if isinstance(data, dict) else data
     if not isinstance(raw_list, list):
         return []
-    models = sorted(
-        {
-            str(m.get("id") or m.get("name") or "").strip().removeprefix("models/")
-            for m in raw_list
-            if isinstance(m, dict) and (m.get("id") or m.get("name"))
-        }
-    )
-    return models[:250]
+    seen = set()
+    ordered: List[str] = []
+    for m in raw_list:
+        if not isinstance(m, dict):
+            continue
+        mid = str(m.get("id") or m.get("name") or "").strip().removeprefix("models/")
+        if mid and mid not in seen:
+            seen.add(mid)
+            ordered.append(mid)
+    return ordered[:250]
 
 
 def _is_usable_text_model(model_id: str) -> bool:
     low = (model_id or "").lower()
-    blocked_tokens = ("whisper", "tts", "embed", "dall-e", "moderation", "guard", "transcribe", "realtime", "imagen", "veo")
-    return bool(low) and not any(tok in low for tok in blocked_tokens)
+    if not low:
+        return False
+    blocked_tokens = (
+        "whisper", "tts", "embed", "dall-e", "moderation", "guard", "transcribe",
+        "realtime", "imagen", "veo", "aqa", "robotics", "computer-use",
+        "-image", "image-generation", "nano-banana", "audio",
+    )
+    return not any(tok in low for tok in blocked_tokens)
+
+
+def _extract_version_tuple(model_id: str) -> Tuple[int, int, int]:
+    """Mengambil versi angka terbaru dari nama model (misal 4.0 > 3.8 > 3.5 > 3.0 > 2.5)."""
+    low = (model_id or "").lower()
+    # Tangani pola seperti gemini-3.8-flash, gemini-4-hydrogen, claude-sonnet-4, gpt-4.1, qwen3
+    matches = re.findall(r"(?:^|[-_/])(\d{1,2})(?:\.(\d{1,2}))?(?:\.(\d{1,2}))?(?=$|[-_:/a-z])", low)
+    best = (0, 0, 0)
+    for maj_s, min_s, pat_s in matches:
+        maj = int(maj_s)
+        # Abaikan angka ukuran parameter seperti 70b/32b/20250514 jika > 15 kecuali memang versi kecil
+        if maj > 20:
+            continue
+        ver = (maj, int(min_s or 0), int(pat_s or 0))
+        if ver > best:
+            best = ver
+    return best
+
+
+def _rank_models_for_writing(models: List[str], preset_id: str = "") -> List[str]:
+    """Mengurutkan model live API agar generasi terbaru & paling andal untuk prosa berada di urutan teratas."""
+    def sort_key(mid: str) -> Tuple[int, Tuple[int, int, int], int, str]:
+        low = mid.lower()
+        ver = _extract_version_tuple(mid)
+
+        # Tier utama: prioritaskan :free di OpenRouter, router 'openrouter/free', flash/chat/sonnet/mini
+        score = 0
+        if low == "openrouter/free":
+            score += 500
+        if preset_id == "openrouter" and low.endswith(":free"):
+            score += 200
+        if preset_id == "gemini" and low.startswith("gemini-"):
+            score += 120
+        if any(tok in low for tok in ("flash", "hydrogen", "chat", "sonnet", "mini", "versatile", "small")):
+            score += 50
+        if "pro" in low or "argon" in low or "large" in low:
+            score += 25
+        if "-latest" in low:
+            score += 20
+        if any(tok in low for tok in ("deep-research", "thinking", "exp", "experimental", "vision")):
+            score -= 40
+        if "live" in low:
+            score -= 60
+        if "gemma-" in low and preset_id == "gemini":
+            score -= 30
+
+        return (score, ver, -len(mid), mid)
+
+    return sorted(models, key=sort_key, reverse=True)
 
 
 async def _pick_and_probe_candidates(
     cfg: Dict[str, Any],
     explicit_model: str = "",
+    fail_on_auth_or_connect: bool = True,
 ) -> Tuple[str, Dict[str, Any]]:
     """
-    Jika user tidak memilih model secara manual, otomatis menemukan dan memverifikasi model
-    yang aktif di akun/server provider (`fetch_remote_models` + prioritas preset).
+    Otomatis menemukan model terbaru yang benar-benar aktif di akun API pengguna
+    tanpa terpaku pada nama model versi lama yang hardcoded.
     """
     ptype = str(cfg.get("provider_type") or "openai_compatible").lower()
-    preset_meta = _PRESET_MAP.get(str(cfg.get("preset_id") or ""), {})
+    preset_id = str(cfg.get("preset_id") or "")
+    preset_meta = _PRESET_MAP.get(preset_id, {})
     base_url = str(cfg.get("base_url") or preset_meta.get("base_url") or "")
     api_key = str(cfg.get("api_key") or "")
 
@@ -554,49 +703,35 @@ async def _pick_and_probe_candidates(
         try:
             live_models = [m for m in await fetch_remote_models(base_url, ptype, api_key) if _is_usable_text_model(m)]
         except RuntimeError as exc:
-            # Jika gagal karena Auth (401/403) atau koneksi putus, gagalkan langsung tanpa muter
             err_l = str(exc).lower()
             if "http 401" in err_l or "http 403" in err_l:
-                raise RuntimeError(f"API Key ditolak oleh server: {exc}") from exc
+                raise RuntimeError(f"API Key ditolak oleh {preset_meta.get('label') or base_url}: {exc}") from exc
             live_models = []
-        except Exception:
-            live_models = []
+        except Exception as exc:
+            if fail_on_auth_or_connect:
+                live_models = []
+            else:
+                raise RuntimeError(f"Gagal menghubungi {base_url}: {exc}") from exc
 
-        live_set = set(live_models)
-        suggested = list(preset_meta.get("suggested_models") or [])
-        if preset_meta.get("default_model") and preset_meta["default_model"] not in suggested:
-            suggested.insert(0, str(preset_meta["default_model"]))
-
-        # 1. Prioritaskan model rekomendasi yang benar-benar ada di akun /models
         if live_models:
-            for sm in suggested:
-                if sm in live_set and sm not in candidates:
-                    candidates.append(sm)
-            # Untuk OpenRouter: prioritaskan model `:free` yang tersedia
-            for lm in live_models:
-                if ":free" in lm.lower() and lm not in candidates:
-                    candidates.append(lm)
-            # Lalu model chat umum terbaik (flash/mini/chat/instruct/sonnet/llama)
-            for lm in live_models:
-                if any(k in lm.lower() for k in ("flash", "chat", "sonnet", "mini", "instruct", "llama", "qwen", "gemini", "mistral")):
-                    if lm not in candidates:
-                        candidates.append(lm)
-            for lm in live_models:
+            ranked_live = _rank_models_for_writing(live_models, preset_id=preset_id)
+            if preset_id == "openrouter" and "openrouter/free" not in ranked_live:
+                candidates.append("openrouter/free")
+            for lm in ranked_live:
                 if lm not in candidates:
                     candidates.append(lm)
         else:
-            # Fallback bila server tidak menyediakan endpoint /models
-            for sm in suggested:
+            for sm in (preset_meta.get("suggested_models") or []):
                 if sm not in candidates:
                     candidates.append(sm)
 
     if not candidates:
         raise RuntimeError(
-            "Tidak ada model aktif ditemukan di server tersebut. Pastikan server sudah memuat model atau masukkan ID model di Opsi Lanjutan."
+            "Tidak ada model aktif ditemukan di server tersebut. Pastikan API aktif atau isi ID model di Opsi Lanjutan."
         )
 
     last_err = ""
-    for cand in candidates[:4]:
+    for cand in candidates[:8]:
         probe_cfg = dict(cfg, model_name=cand)
         url, headers, payload = build_chat_request(
             provider_cfg=probe_cfg,
@@ -608,7 +743,7 @@ async def _pick_and_probe_candidates(
         )
         t0 = time.monotonic()
         try:
-            async with httpx.AsyncClient(timeout=25.0) as client:
+            async with httpx.AsyncClient(timeout=18.0) as client:
                 resp = await client.post(url, headers=headers, json=payload)
         except Exception as exc:
             raise RuntimeError(f"Gagal menghubungi {url}: {exc}") from exc
@@ -619,19 +754,90 @@ async def _pick_and_probe_candidates(
             return cand, {
                 "ok": True,
                 "provider_type": ptype,
+                "preset_id": preset_id,
                 "model_name": cand,
                 "latency_ms": latency,
                 "sample_reply": text[:80] or "OK",
-                "detail": f"Terhubung ke {cand} ({latency} ms)",
+                "detail": f"Terhubung ke {preset_meta.get('label') or ptype} • Model: {cand} ({latency} ms)",
             }
 
         err_txt = resp.text[:300]
-        last_err = f"HTTP {resp.status_code}: {err_txt}"
-        # Gagal cepat jika API Key salah / dilarang — tidak perlu mencoba model lain
-        if resp.status_code in (401, 403):
-            raise RuntimeError(f"API Key tidak valid atau ditolak ({last_err})")
+        last_err = f"HTTP {resp.status_code} ({cand}): {err_txt}"
+        low_err = err_txt.lower()
+        # Gagal cepat jika API Key salah / dilarang (termasuk Google API_KEY_INVALID pada HTTP 400)
+        if resp.status_code in (401, 403) or "api_key_invalid" in low_err or "api key not valid" in low_err:
+            raise RuntimeError(f"API Key ditolak oleh {preset_meta.get('label') or base_url} ({last_err})")
 
-    raise RuntimeError(f"Semua kandidat model gagal dihubungi ({last_err})")
+    raise RuntimeError(f"Semua kandidat model di {preset_meta.get('label') or base_url} gagal diuji ({last_err})")
+
+
+async def auto_detect_and_probe(
+    api_key: str,
+    explicit_model: str = "",
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    Auto-detect sumber API dari format API Key (atau uji kandidat provider)
+    tanpa pengguna perlu memilih provider secara terpisah.
+    Mengembalikan `(detected_provider_updates, probe_result)`.
+    """
+    clean_key = (api_key or "").strip()
+    if not clean_key:
+        # Tanpa API Key: periksa server lokal yang mungkin aktif (Ollama / LM Studio)
+        for local_pid in ("ollama", "custom_openai"):
+            meta = _PRESET_MAP[local_pid]
+            probe_cfg = {
+                "provider_type": meta["provider_type"],
+                "preset_id": local_pid,
+                "display_name": meta["label"],
+                "base_url": meta["base_url"],
+                "api_key": "",
+            }
+            try:
+                chosen_model, probe_res = await _pick_and_probe_candidates(
+                    probe_cfg, explicit_model=explicit_model
+                )
+                return {
+                    **probe_cfg,
+                    "model_name": chosen_model,
+                }, probe_res
+            except Exception:
+                continue
+        raise ValueError(
+            "Tempel API Key AI Anda (Gemini, OpenRouter, Groq, OpenAI, Claude, DeepSeek, Mistral), atau nyalakan Ollama/LM Studio lokal."
+        )
+
+    candidate_pids, high_conf = classify_api_key_providers(clean_key)
+    errors: List[str] = []
+
+    for pid in candidate_pids:
+        meta = _PRESET_MAP.get(pid)
+        if not meta:
+            continue
+        probe_cfg = {
+            "provider_type": meta["provider_type"],
+            "preset_id": pid,
+            "display_name": meta["label"],
+            "base_url": meta["base_url"],
+            "api_key": clean_key,
+        }
+        try:
+            chosen_model, probe_res = await _pick_and_probe_candidates(
+                probe_cfg, explicit_model=explicit_model
+            )
+            return {
+                **probe_cfg,
+                "model_name": chosen_model,
+            }, probe_res
+        except Exception as exc:
+            msg = str(exc)
+            errors.append(f"{meta['label']}: {msg}")
+            # Jika tanda tangan key sudah 100% pasti (misal AIza / sk-ant- / gsk_ / sk-or-), tampilkan error spesifiknya langsung
+            if high_conf:
+                raise RuntimeError(msg) from exc
+
+    raise RuntimeError(
+        "API Key tidak dikenali atau ditolak oleh seluruh provider yang diuji (" + " | ".join(errors[:3]) + ")"
+    )
 
 
 async def test_provider_connection(
@@ -644,7 +850,11 @@ async def test_provider_connection(
     current = load_provider_config(local_llama_url=local_llama_url)
     cfg = dict(current)
     explicit_model = ""
+    raw_ptype = ""
+    raw_base_url = ""
     if isinstance(test_cfg, dict):
+        raw_ptype = str(test_cfg.get("provider_type") or "").strip().lower()
+        raw_base_url = str(test_cfg.get("base_url") or "").strip()
         for k in ("provider_type", "preset_id", "base_url", "timeout_seconds"):
             if test_cfg.get(k) is not None and str(test_cfg.get(k)).strip() != "":
                 cfg[k] = test_cfg[k]
@@ -653,13 +863,19 @@ async def test_provider_connection(
             explicit_model = ""
         preset_meta = _PRESET_MAP.get(str(cfg.get("preset_id") or ""), {})
         same_target = (
-            str(cfg.get("preset_id") or "") == str(current.get("preset_id") or "")
+            raw_ptype != "auto"
+            and str(cfg.get("preset_id") or "") == str(current.get("preset_id") or "")
             and str(cfg.get("base_url") or preset_meta.get("base_url") or "").rstrip("/") == str(current.get("base_url") or "").rstrip("/")
         )
         if test_cfg.get("clear_api_key"):
             cfg["api_key"] = ""
         elif test_cfg.get("api_key") is not None and str(test_cfg.get("api_key")).strip():
             cfg["api_key"] = str(test_cfg["api_key"]).strip()
+        elif raw_ptype == "auto" and current.get("provider_type") != "local_llama" and not raw_base_url:
+            cfg["api_key"] = str(current.get("api_key") or "")
+            cfg["provider_type"] = current.get("provider_type") or "openai_compatible"
+            cfg["preset_id"] = current.get("preset_id") or "custom_openai"
+            cfg["base_url"] = current.get("base_url") or ""
         elif not same_target:
             cfg["api_key"] = ""
     else:
@@ -681,6 +897,15 @@ async def test_provider_connection(
                 }
             raise RuntimeError(f"llama-server mengembalikan HTTP {r.status_code}")
 
+    if ptype == "auto":
+        if raw_base_url:
+            cfg["provider_type"] = "openai_compatible"
+            cfg["preset_id"] = str(test_cfg.get("preset_id") or "custom_openai") if test_cfg else "custom_openai"
+            _, probe_res = await _pick_and_probe_candidates(cfg, explicit_model=explicit_model)
+            return probe_res
+        _, probe_res = await auto_detect_and_probe(str(cfg.get("api_key") or ""), explicit_model=explicit_model)
+        return probe_res
+
     preset_meta = _PRESET_MAP.get(str(cfg.get("preset_id") or ""), {})
     if preset_meta.get("requires_api_key") and not str(cfg.get("api_key") or "").strip():
         raise RuntimeError(f"API Key wajib diisi untuk {preset_meta.get('label') or ptype}.")
@@ -695,19 +920,37 @@ async def resolve_and_activate_provider(
     local_llama_url: str = "http://127.0.0.1:8080",
 ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
     """
-    Memvalidasi, memilih model aktif terbaik secara otomatis bila `model_name` kosong/auto,
-    menguji koneksi sebelum menyimpan, lalu mengaktifkan provider baru tanpa mematikan
-    engine lama bila koneksi gagal.
+    Memvalidasi, mendeteksi provider secara otomatis dari API Key (`provider_type="auto"`),
+    memilih model aktif terbaru secara otomatis bila `model_name` kosong/auto,
+    dan menguji koneksi sebelum menyimpan tanpa mematikan engine lokal bila gagal.
     """
-    ptype = str(updates.get("provider_type") or "local_llama").strip().lower()
+    ptype = str(updates.get("provider_type") or "auto").strip().lower()
     if ptype == "local_llama":
         saved = save_provider_config(updates, local_llama_url=local_llama_url)
         return saved, None
 
     current = load_provider_config(local_llama_url=local_llama_url)
+    explicit_model = str(updates.get("model_name") or "").strip()
+    if explicit_model.lower() == "auto":
+        explicit_model = ""
+    raw_base_url = str(updates.get("base_url") or "").strip()
+    raw_api_key = "" if updates.get("clear_api_key") else str(updates.get("api_key") or "").strip()
+
+    # Mode Universal Auto-Detect: cukup isi API Key apa saja!
+    if ptype == "auto" and not raw_base_url:
+        effective_key = raw_api_key or (str(current.get("api_key") or "") if current.get("provider_type") != "local_llama" else "")
+        detected_cfg, probe_result = await auto_detect_and_probe(effective_key, explicit_model=explicit_model)
+        final_updates = dict(updates, **detected_cfg)
+        final_updates["clear_api_key"] = False
+        saved = save_provider_config(final_updates, local_llama_url=local_llama_url)
+        return saved, probe_result
+
+    if ptype == "auto" and raw_base_url:
+        ptype = "anthropic" if "anthropic" in raw_base_url.lower() else "openai_compatible"
+
     preset_id = str(updates.get("preset_id") or "custom_openai").strip()
     preset_meta = _PRESET_MAP.get(preset_id, {})
-    base_url = normalize_base_url(str(updates.get("base_url") or preset_meta.get("base_url") or ""))
+    base_url = normalize_base_url(raw_base_url or str(preset_meta.get("base_url") or ""))
     display_name = str(updates.get("display_name") or preset_meta.get("label") or base_url).strip()
 
     same_target = (
@@ -716,8 +959,8 @@ async def resolve_and_activate_provider(
     )
     if updates.get("clear_api_key"):
         api_key = ""
-    elif updates.get("api_key") is not None and str(updates["api_key"]).strip():
-        api_key = str(updates["api_key"]).strip()
+    elif raw_api_key:
+        api_key = raw_api_key
     elif same_target:
         api_key = str(current.get("api_key") or "")
     else:
@@ -725,10 +968,6 @@ async def resolve_and_activate_provider(
 
     if preset_meta.get("requires_api_key") and not api_key:
         raise ValueError(f"API Key wajib diisi untuk {display_name}.")
-
-    explicit_model = str(updates.get("model_name") or "").strip()
-    if explicit_model.lower() == "auto":
-        explicit_model = ""
 
     probe_result: Optional[Dict[str, Any]] = None
     chosen_model = explicit_model
@@ -746,6 +985,7 @@ async def resolve_and_activate_provider(
         )
 
     final_updates = dict(updates)
+    final_updates["provider_type"] = ptype
     if chosen_model:
         final_updates["model_name"] = chosen_model
     saved = save_provider_config(final_updates, local_llama_url=local_llama_url)

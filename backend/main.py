@@ -467,8 +467,8 @@ class ImportLocalModelRequest(BaseModel):
 
 
 class AIProviderConfigRequest(BaseModel):
-    provider_type: str = Field(..., pattern="^(local_llama|openai_compatible|anthropic)$")
-    preset_id: str = "custom_openai"
+    provider_type: str = Field(default="auto", pattern="^(local_llama|auto|openai_compatible|anthropic)$")
+    preset_id: str = "auto"
     display_name: Optional[str] = None
     base_url: Optional[str] = None
     model_name: Optional[str] = ""
@@ -679,7 +679,7 @@ async def api_set_ai_provider(req: AIProviderConfigRequest) -> Dict[str, Any]:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         stop_info = None
-        if req.provider_type != "local_llama" and req.stop_local_llama:
+        if saved.get("provider_type") != "local_llama" and req.stop_local_llama:
             stop_info = ModelRuntimeManager.stop_llama_server()
 
         return {
@@ -688,6 +688,7 @@ async def api_set_ai_provider(req: AIProviderConfigRequest) -> Dict[str, Any]:
             "test": probe_result,
             "stopped_local_llama": stop_info,
             "configured_model": saved.get("model_name"),
+            "detected_provider": saved.get("display_name"),
         }
 
 
